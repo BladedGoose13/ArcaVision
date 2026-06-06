@@ -36,7 +36,7 @@ streamlit run frontend/app.py
 
 ![Arca AI Agent Workflow](arca_ai_agent_workflow.png)
 
-![Bayesian Confidence Scoring](diagrams/bayesian_confidence_scoring.png)
+![Bayesian Confidence Scoring](bayesian_confidence_scoring.png)
 
 
 ## División de trabajo (hackathon 24h)
