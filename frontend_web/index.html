@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArcFast — Arca Continental</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+<style>
+:root {
+  --red:    #C8102E;
+  --brown:  #6B3A2A;
+  --red-dark: #a00e24;
+  --cream:  #FAF8F5;
+  --white:  #FFFFFF;
+  --gray-50: #F7F5F2;
+  --gray-100: #EEEBE6;
+  --gray-300: #C8C4BC;
+  --gray-500: #8A857C;
+  --gray-700: #4A4640;
+  --gray-900: #1C1A18;
+  --ok:     #1A7A45;
+  --warn:   #B87014;
+  --error:  #C8102E;
+  --radius: 4px;
+  --radius-lg: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--gray-900);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--white);
+  border-bottom: 3px solid var(--red);
+  padding: 0 40px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--red);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.brand-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--gray-900);
+}
+
+.brand-sub {
+  font-size: 11px;
+  color: var(--gray-500);
+  font-weight: 500;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--gray-700);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--gray-100);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+/* ── PROGRESS BAR ── */
+.progress-bar {
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-100);
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 48px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-300);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  white-space: nowrap;
+  transition: color .2s;
+}
+
+.step.active { color: var(--red); }
+.step.done   { color: var(--ok); }
+
+.step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  transition: all .2s;
+}
+
+.step.active .step-num {
+  background: var(--red);
+  border-color: var(--red);
+  color: white;
+}
+
+.step.done .step-num {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: white;
+}
+
+.step-arrow {
+  color: var(--gray-300);
+  margin: 0 8px;
+  font-size: 14px;
+}
+
+/* ── LAYOUT ── */
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: calc(100vh - 112px);
+}
+
+.sidebar {
+  background: var(--white);
+  border-right: 1px solid var(--gray-100);
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--gray-500);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.sidebar input, .sidebar select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--gray-100);
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--gray-900);
+  background: var(--gray-50);
+  outline: none;
+  transition: border-color .15s;
+}
+
+.sidebar input:focus, .sidebar select:focus {
+  border-color: var(--red);
+  background: var(--white);
+}
+
+.sidebar input::placeholder { color: var(--gray-300); }
+
+.slider-wrap { display: flex; flex-direction: column; gap: 6px; }
+.slider-row  { display: flex; justify-content: space-between; font-size: 12px; color: var(--gray-500); }
+.slider-val  { font-weight: 600; color: var(--red); }
+
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--gray-100);
+  outline: none;
+  cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--red);
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(200,16,46,.3);
+}
+
+.btn-reset {
+  width: 100%;
+  padding: 9px;
+  border: 1.5px solid var(--gray-100);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--gray-500);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+  margin-top: auto;
+}
+.btn-reset:hover { border-color: var(--red); color: var(--red); }
+
+/* ── MAIN ── */
+.main {
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.page { display: none; }
+.page.active { display: flex; flex-direction: column; gap: 24px; }
+
+.page-header { display: flex; flex-direction: column; gap: 4px; }
+
+.page-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  letter-spacing: 2px;
+  color: var(--gray-900);
+  line-height: 1;
+}
+
+.page-sub { font-size: 14px; color: var(--gray-500); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--gray-500);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all .15s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--red);
+  color: white;
+}
+.btn-primary:hover { background: var(--red-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,16,46,.25); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--gray-700);
+  border: 1.5px solid var(--gray-100);
+}
+.btn-secondary:hover { border-color: var(--gray-300); background: var(--gray-50); }
+
+.btn-danger {
+  background: transparent;
+  color: var(--error);
+  border: 1.5px solid var(--error);
+}
+.btn-danger:hover { background: var(--error); color: white; }
+
+.btn-full { width: 100%; justify-content: center; }
+
+.btn-group { display: flex; gap: 12px; }
+
+/* ── GRABACIÓN ── */
+.record-zone {
+  border: 2px dashed var(--gray-100);
+  border-radius: var(--radius-lg);
+  padding: 48px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  transition: all .2s;
+  background: var(--gray-50);
+}
+
+.record-zone.active {
+  border-color: var(--red);
+  background: #FFF5F6;
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0%,100% { border-color: var(--red); }
+  50%      { border-color: #f5a0ae; }
+}
+
+.record-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: white;
+  box-shadow: 0 0 0 0 rgba(200,16,46,.4);
+}
+
+.record-zone.active .record-icon {
+  animation: pulse-ring 1.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(200,16,46,.4); }
+  70%  { box-shadow: 0 0 0 20px rgba(200,16,46,0); }
+  100% { box-shadow: 0 0 0 0 rgba(200,16,46,0); }
+}
+
+.record-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; color: var(--gray-900); }
+.record-sub   { font-size: 13px; color: var(--gray-500); max-width: 420px; }
+
+.record-controls { display: flex; gap: 12px; margin-top: 8px; }
+
+/* ── BADGE ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.badge-ok     { background: #E6F4EC; color: var(--ok); }
+.badge-warn   { background: #FEF3E2; color: var(--warn); }
+.badge-error  { background: #FDECEA; color: var(--error); }
+.badge-active { background: #FDECEA; color: var(--red); }
+
+/* ── MAPEO TABLE ── */
+.mapeo-table { width: 100%; border-collapse: collapse; }
+.mapeo-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--gray-500);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gray-100);
+}
+.mapeo-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gray-50);
+  vertical-align: middle;
+}
+.mapeo-table tr:last-child td { border-bottom: none; }
+
+.mapeo-table input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1.5px solid var(--gray-100);
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--gray-900);
+  background: var(--gray-50);
+  outline: none;
+  transition: border-color .15s;
+}
+.mapeo-table input:focus { border-color: var(--red); background: var(--white); }
+
+.conf-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.conf-track {
+  flex: 1;
+  height: 4px;
+  background: var(--gray-100);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.conf-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .3s;
+}
+.conf-num { font-size: 12px; font-weight: 600; min-width: 32px; }
+
+/* ── MÉTRICAS ── */
+.metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+
+.metric-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--gray-500); }
+.metric-value { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 1px; color: var(--gray-900); line-height: 1; }
+.metric-value.red    { color: var(--red); }
+.metric-value.green  { color: var(--ok); }
+.metric-value.warn   { color: var(--warn); }
+
+/* ── STEPS LIST ── */
+.steps-list { display: flex; flex-direction: column; gap: 2px; }
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--gray-700);
+  transition: background .15s;
+}
+.step-item:hover { background: var(--gray-50); }
+.step-item-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-500);
+  flex-shrink: 0;
+}
+.step-item-icon { font-size: 14px; }
+
+/* ── PREGUNTAS ── */
+.pregunta-card {
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--white);
+}
+.pregunta-q { font-size: 15px; font-weight: 500; color: var(--gray-900); }
+.pregunta-why { font-size: 12px; color: var(--gray-500); font-style: italic; }
+.pregunta-card input {
+  padding: 10px 14px;
+  border: 1.5px solid var(--gray-100);
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--gray-900);
+  background: var(--gray-50);
+  outline: none;
+  transition: border-color .15s;
+}
+.pregunta-card input:focus { border-color: var(--red); background: white; }
+
+/* ── ALERTS ── */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.alert-warn  { background: #FEF3E2; color: #7a4c0e; border-left: 3px solid var(--warn); }
+.alert-ok    { background: #E6F4EC; color: #1a5c35; border-left: 3px solid var(--ok); }
+.alert-error { background: #FDECEA; color: #8a0f20; border-left: 3px solid var(--error); }
+.alert-info  { background: #EEF2FF; color: #3347a0; border-left: 3px solid #5B6EE8; }
+
+/* ── RESULTS TABLE ── */
+.results-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.results-table th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--gray-500);
+  border-bottom: 1px solid var(--gray-100);
+}
+.results-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--gray-50);
+  color: var(--gray-700);
+}
+.results-table tr:last-child td { border-bottom: none; }
+
+/* ── SPINNER ── */
+.spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 64px;
+}
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--gray-100);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner-text { font-size: 14px; color: var(--gray-500); }
+
+/* ── DIVIDER ── */
+.divider { height: 1px; background: var(--gray-100); margin: 4px 0; }
+
+/* ── DOWNLOAD BTN ── */
+.btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--gray-100);
+  background: transparent;
+  color: var(--gray-700);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .15s;
+}
+.btn-download:hover { border-color: var(--red); color: var(--red); }
+
+/* ── INFO URL ── */
+.url-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--gray-700);
+  font-family: monospace;
+}
+
+/* ── YA SE ── */
+.ya-se-list { display: flex; flex-direction: column; gap: 4px; }
+.ya-se-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ok);
+  padding: 4px 0;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { border-right: none; border-bottom: 1px solid var(--gray-100); }
+  .main { padding: 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <div class="logo-mark">AC</div>
+    <div class="brand-text">
+      <span class="brand-name">ArcFast</span>
+      <span class="brand-sub">Arca Continental · Automatización de órdenes</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="user-chip">
+      <div class="user-avatar" id="user-avatar">—</div>
+      <span id="user-email-display">Sin sesión</span>
+    </div>
+  </div>
+</header>
+
+<!-- PROGRESS -->
+<nav class="progress-bar" id="progress-bar">
+  <div class="step active" data-step="1"><div class="step-num">1</div> Grabación</div>
+  <span class="step-arrow">›</span>
+  <div class="step" data-step="2"><div class="step-num">2</div> Preguntas</div>
+  <span class="step-arrow">›</span>
+  <div class="step" data-step="3"><div class="step-num">3</div> Revisión</div>
+  <span class="step-arrow">›</span>
+  <div class="step" data-step="4"><div class="step-num">4</div> Ejecución</div>
+  <span class="step-arrow">›</span>
+  <div class="step" data-step="5"><div class="step-num">5</div> Aprobación</div>
+  <span class="step-arrow">›</span>
+  <div class="step" data-step="6"><div class="step-num">6</div> Reporte</div>
+</nav>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <span class="sidebar-label">Configuración</span>
+      <input type="email" id="inp-email" placeholder="usuario@arca.com" oninput="updateUser()">
+      <input type="url"   id="inp-url"   placeholder="https://portal.walmart.com.mx">
+    </div>
+
+    <div class="sidebar-section">
+      <span class="sidebar-label">Umbral de confianza</span>
+      <div class="slider-wrap">
+        <div class="slider-row">
+          <span>0.50</span>
+          <span class="slider-val" id="umbral-val">0.70</span>
+          <span>0.95</span>
+        </div>
+        <input type="range" id="umbral" min="50" max="95" value="70" step="5" oninput="document.getElementById('umbral-val').textContent='0.'+this.value">
+      </div>
+    </div>
+
+    <button class="btn-reset" onclick="resetAll()">↺ Reiniciar</button>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- ══ PÁGINA 1: GRABACIÓN ══ -->
+    <div class="page active" id="page-captura">
+      <div class="page-header">
+        <h1 class="page-title">Captura del workflow</h1>
+        <p class="page-sub">Ejecuta el proceso en tu browser mientras hablas en voz alta. El agente aprenderá a replicarlo.</p>
+      </div>
+
+      <div id="url-info" style="display:none">
+        <div class="url-chip">🌐 <span id="url-display"></span></div>
+      </div>
+
+      <div class="record-zone" id="record-zone">
+        <div class="record-icon" id="record-icon">🎙</div>
+        <div class="record-title" id="record-title">Listo para grabar</div>
+        <div class="record-sub" id="record-sub">Presiona iniciar, ejecuta el proceso y explica en voz alta cada paso que realizas.</div>
+        <div class="record-controls" id="record-controls">
+          <button class="btn btn-primary" onclick="iniciarGrabacion()">🔴 Iniciar grabación</button>
+        </div>
+      </div>
+
+      <div id="record-active-controls" style="display:none">
+        <div class="btn-group">
+          <button class="btn btn-secondary" id="btn-pausar" onclick="pausarGrabacion()">⏸ Pausar</button>
+          <button class="btn btn-secondary" onclick="reiniciarGrabacion()">🔄 Reiniciar</button>
+          <button class="btn btn-primary" onclick="terminarGrabacion()">⏹ Terminar y analizar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PÁGINA 2: PREGUNTAS ══ -->
+    <div class="page" id="page-preguntas">
+      <div class="page-header">
+        <h1 class="page-title">El agente tiene preguntas</h1>
+        <p class="page-sub">Hay información que no pude ver durante la grabación. Necesito que me respondas para ejecutar correctamente.</p>
+      </div>
+
+      <div id="ya-se-section" style="display:none">
+        <div class="card">
+          <div class="card-title">✅ Lo que aprendí sin preguntar</div>
+          <div class="ya-se-list" id="ya-se-list"></div>
+        </div>
+      </div>
+
+      <div id="preguntas-list"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="goTo('captura')">← Volver a grabar</button>
+        <button class="btn btn-primary" onclick="confirmarRespuestas()">Confirmar respuestas →</button>
+      </div>
+    </div>
+
+    <!-- ══ PÁGINA 3: REVISIÓN ══ -->
+    <div class="page" id="page-revision">
+      <div class="page-header">
+        <h1 class="page-title">Revisa el workflow</h1>
+        <p class="page-sub">Edita cualquier campo incorrecto antes de ejecutar el agente.</p>
+      </div>
+
+      <div class="metrics-row" id="revision-metrics"></div>
+
+      <div class="card">
+        <div class="card-title">Pasos detectados</div>
+        <div class="steps-list" id="pasos-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Mapeo de campos</div>
+        <table class="mapeo-table">
+          <thead>
+            <tr>
+              <th>Campo origen</th>
+              <th>Campo Arca</th>
+              <th style="width:180px">Confianza</th>
+              <th style="width:120px">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="mapeo-tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="flags-alert" style="display:none" class="alert alert-warn"></div>
+
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="goTo('captura')">← Volver a grabar</button>
+        <button class="btn btn-primary" onclick="confirmarRevision()">Confirmar y ejecutar →</button>
+      </div>
+    </div>
+
+    <!-- ══ PÁGINA 4: EJECUCIÓN ══ -->
+    <div class="page" id="page-ejecucion">
+      <div class="page-header">
+        <h1 class="page-title">Agente ejecutando</h1>
+        <p class="page-sub">El agente está navegando el portal de forma autónoma.</p>
+      </div>
+
+      <div id="creds-section" style="display:none">
+        <div class="card">
+          <div class="card-title">Datos necesarios para ejecutar</div>
+          <div id="creds-list" style="display:flex;flex-direction:column;gap:12px;"></div>
+          <div style="margin-top:16px">
+            <button class="btn btn-primary" onclick="iniciarEjecucion()">Iniciar ejecución</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="ejecucion-spinner" class="spinner-wrap">
+        <div class="spinner"></div>
+        <div class="spinner-text" id="spinner-text">Iniciando el agente...</div>
+      </div>
+    </div>
+
+    <!-- ══ PÁGINA 5: APROBACIÓN ══ -->
+    <div class="page" id="page-aprobacion">
+      <div class="page-header">
+        <h1 class="page-title">Aprobación de resultados</h1>
+        <p class="page-sub">Revisa lo que hizo el agente antes de registrar en Arca.</p>
+      </div>
+
+      <div class="metrics-row" id="aprobacion-metrics"></div>
+
+      <div class="card">
+        <div class="card-title">Detalle de ejecución</div>
+        <table class="results-table">
+          <thead>
+            <tr><th>Paso</th><th>Acción</th><th>Estado</th></tr>
+          </thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
+
+      <div id="datos-extraidos-section" style="display:none">
+        <div class="card">
+          <div class="card-title">Datos extraídos del portal</div>
+          <pre id="datos-extraidos-pre" style="font-size:12px;color:var(--gray-700);white-space:pre-wrap;overflow:auto;max-height:200px"></pre>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-danger" onclick="goTo('captura')">✕ Rechazar — volver a grabar</button>
+        <button class="btn btn-primary" onclick="aprobar()">✓ Aprobar y generar reporte →</button>
+      </div>
+    </div>
+
+    <!-- ══ PÁGINA 6: REPORTE ══ -->
+    <div class="page" id="page-resultado">
+      <div class="page-header">
+        <h1 class="page-title">Reporte ejecutivo</h1>
+        <p class="page-sub">Proceso completado y aprobado.</p>
+      </div>
+
+      <div class="alert alert-ok" id="resultado-summary"></div>
+
+      <div class="metrics-row" id="resultado-metrics"></div>
+
+      <div class="card">
+        <div class="card-title">📊 Impacto económico — Simulación Monte Carlo</div>
+        <div class="metrics-row" id="mc-metrics" style="margin-bottom:16px"></div>
+        <div id="chart-montecarlo" style="height:300px"></div>
+        <p style="font-size:11px;color:var(--gray-500);margin-top:8px" id="mc-caption"></p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔍 Errores del agente — Para ingenieros</div>
+        <div id="chart-errores" style="height:260px"></div>
+        <table class="results-table" style="margin-top:16px">
+          <thead><tr><th>Paso</th><th>Acción</th><th>Estado</th></tr></thead>
+          <tbody id="errores-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-download" onclick="descargarReporte()">⬇ Descargar reporte JSON</button>
+        <button class="btn btn-primary" onclick="resetAll()">↺ Nueva orden</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════════
+const API = 'http://localhost:8000';
+let state = {
+  etapa: 'captura',
+  grabando: false,
+  pausado: false,
+  faseA: null,
+  plan: null,
+  planConfirmado: null,
+  resultados: null,
+  respuestas: {},
+  credenciales: {},
+};
+
+// ═══════════════════════════════════════════════════════════
+// NAVEGACIÓN
+// ═══════════════════════════════════════════════════════════
+const ETAPAS = ['captura','preguntas','revision','ejecucion','aprobacion','resultado'];
+const STEP_NUM = {captura:1,preguntas:2,revision:3,ejecucion:4,aprobacion:5,resultado:6};
+
+function goTo(etapa) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + etapa).classList.add('active');
+
+  document.querySelectorAll('.step[data-step]').forEach(s => {
+    const n = parseInt(s.dataset.step);
+    const cur = STEP_NUM[etapa];
+    s.classList.remove('active','done');
+    if (n === cur) s.classList.add('active');
+    else if (n < cur) s.classList.add('done');
+  });
+
+  state.etapa = etapa;
+  window.scrollTo(0,0);
+}
+
+// ═══════════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════════
+function updateUser() {
+  const email = document.getElementById('inp-email').value;
+  const display = document.getElementById('user-email-display');
+  const avatar  = document.getElementById('user-avatar');
+  display.textContent = email || 'Sin sesión';
+  avatar.textContent  = email ? email[0].toUpperCase() : '—';
+}
+
+function getUmbral() {
+  return parseInt(document.getElementById('umbral').value) / 100;
+}
+
+function getEmail()  { return document.getElementById('inp-email').value; }
+function getUrl()    { return document.getElementById('inp-url').value; }
+
+// ═══════════════════════════════════════════════════════════
+// GRABACIÓN
+// ═══════════════════════════════════════════════════════════
+async function iniciarGrabacion() {
+  const url = getUrl();
+  if (!url) { showAlert('Ingresa la URL del portal primero.', 'error'); return; }
+
+  try {
+    await fetch(`${API}/grabar/iniciar`, { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url_portal: url, email: getEmail() })
+    });
+    state.grabando = true;
+    state.pausado  = false;
+
+    document.getElementById('url-info').style.display = 'block';
+    document.getElementById('url-display').textContent = url;
+    document.getElementById('record-zone').classList.add('active');
+    document.getElementById('record-icon').textContent = '🔴';
+    document.getElementById('record-title').textContent = 'Grabando...';
+    document.getElementById('record-sub').textContent = 'Ejecuta el proceso y habla en voz alta. Presiona terminar cuando acabes.';
+    document.getElementById('record-controls').style.display = 'none';
+    document.getElementById('record-active-controls').style.display = 'flex';
+  } catch(e) {
+    showAlert('Error conectando con el backend: ' + e.message, 'error');
+  }
+}
+
+async function pausarGrabacion() {
+  if (!state.pausado) {
+    await fetch(`${API}/grabar/pausar`, { method:'POST' });
+    state.pausado = true;
+    document.getElementById('btn-pausar').textContent = '▶ Continuar';
+    document.getElementById('record-zone').classList.remove('active');
+    document.getElementById('record-icon').textContent = '⏸';
+    document.getElementById('record-title').textContent = 'Pausado';
+  } else {
+    await fetch(`${API}/grabar/continuar`, { method:'POST' });
+    state.pausado = false;
+    document.getElementById('btn-pausar').textContent = '⏸ Pausar';
+    document.getElementById('record-zone').classList.add('active');
+    document.getElementById('record-icon').textContent = '🔴';
+    document.getElementById('record-title').textContent = 'Grabando...';
+  }
+}
+
+async function reiniciarGrabacion() {
+  await fetch(`${API}/grabar/reiniciar`, { method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ url_portal: getUrl(), email: getEmail() })
+  });
+  state.pausado = false;
+  document.getElementById('btn-pausar').textContent = '⏸ Pausar';
+  document.getElementById('record-zone').classList.add('active');
+  document.getElementById('record-icon').textContent = '🔴';
+  document.getElementById('record-title').textContent = 'Grabando (reiniciado)...';
+}
+
+async function terminarGrabacion() {
+  document.getElementById('record-active-controls').style.display = 'none';
+  document.getElementById('record-zone').classList.remove('active');
+  document.getElementById('record-icon').textContent = '⏳';
+  document.getElementById('record-title').textContent = 'Analizando con Claude...';
+  document.getElementById('record-sub').textContent = 'Espera mientras el agente procesa tu grabación.';
+
+  try {
+    const res  = await fetch(`${API}/grabar/terminar`, { method:'POST' });
+    const data = await res.json();
+
+    if (data.error) { showAlert(data.error, 'error'); resetRecordUI(); return; }
+
+    state.faseA = data;
+
+    if (data.preguntas && data.preguntas.length > 0) {
+      renderPreguntas(data);
+      goTo('preguntas');
+    } else {
+      const r2 = await fetch(`${API}/completar`, { method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ respuestas: {} })
+      });
+      const plan = await r2.json();
+      state.plan = plan;
+      renderRevision(plan);
+      goTo('revision');
+    }
+  } catch(e) {
+    showAlert('Error analizando sesión: ' + e.message, 'error');
+    resetRecordUI();
+  }
+}
+
+function resetRecordUI() {
+  document.getElementById('record-zone').classList.remove('active');
+  document.getElementById('record-icon').textContent = '🎙';
+  document.getElementById('record-title').textContent = 'Listo para grabar';
+  document.getElementById('record-sub').textContent = 'Presiona iniciar, ejecuta el proceso y explica en voz alta cada paso.';
+  document.getElementById('record-controls').style.display = 'flex';
+  document.getElementById('record-active-controls').style.display = 'none';
+  state.grabando = false;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PREGUNTAS
+// ═══════════════════════════════════════════════════════════
+function renderPreguntas(data) {
+  const list = document.getElementById('preguntas-list');
+  list.innerHTML = '';
+
+  if (data.ya_se && data.ya_se.length > 0) {
+    document.getElementById('ya-se-section').style.display = 'block';
+    const ys = document.getElementById('ya-se-list');
+    ys.innerHTML = data.ya_se.map(c => `<div class="ya-se-item">✓ ${c}</div>`).join('');
+  }
+
+  data.preguntas.forEach(p => {
+    const isPass = p.es_password || ['password','contraseña','clave','pass'].some(w => p.campo.toLowerCase().includes(w));
+    const div = document.createElement('div');
+    div.className = 'pregunta-card';
+    div.innerHTML = `
+      <div class="pregunta-q">${p.pregunta}</div>
+      <div class="pregunta-why">Por qué lo necesito: ${p.por_que}</div>
+      <input type="${isPass ? 'password' : 'text'}" id="resp-${p.campo}"
+             placeholder="Tu respuesta..." autocomplete="off">
+    `;
+    list.appendChild(div);
+  });
+}
+
+async function confirmarRespuestas() {
+  const preguntas = state.faseA.preguntas;
+  const respuestas = {};
+  let faltantes = [];
+
+  preguntas.forEach(p => {
+    const val = document.getElementById('resp-' + p.campo)?.value?.trim();
+    if (!val) faltantes.push(p.campo);
+    respuestas[p.campo] = val || '';
+  });
+
+  if (faltantes.length > 0) {
+    showAlert('Faltan respuestas: ' + faltantes.join(', '), 'warn');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API}/completar`, { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ respuestas })
+    });
+    const plan = await res.json();
+    state.plan = plan;
+    renderRevision(plan);
+    goTo('revision');
+  } catch(e) {
+    showAlert('Error completando el plan: ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// REVISIÓN
+// ═══════════════════════════════════════════════════════════
+function renderRevision(plan) {
+  const umbral = getUmbral();
+
+  document.getElementById('revision-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Origen</div><div class="metric-value" style="font-size:18px;font-family:'DM Sans'">${plan.plataforma_origen || '—'}</div></div>
+    <div class="metric-card"><div class="metric-label">Destino</div><div class="metric-value" style="font-size:18px;font-family:'DM Sans'">${plan.plataforma_destino || '—'}</div></div>
+    <div class="metric-card"><div class="metric-label">Pasos</div><div class="metric-value red">${(plan.pasos || []).length}</div></div>
+    <div class="metric-card"><div class="metric-label">Campos mapeados</div><div class="metric-value">${(plan.mapeo_campos || []).length}</div></div>
+  `;
+
+  const iconos = {navegar:'🌐',click:'🖱',escribir:'⌨️',seleccionar:'☑️',extraer:'📋',verificar:'🔍',esperar:'⏳'};
+  document.getElementById('pasos-list').innerHTML = (plan.pasos || []).map(p => `
+    <div class="step-item">
+      <div class="step-item-num">${p.numero}</div>
+      <span class="step-item-icon">${iconos[p.accion] || '▸'}</span>
+      <span>${p.intencion}</span>
+    </div>
+  `).join('');
+
+  const tbody = document.getElementById('mapeo-tbody');
+  tbody.innerHTML = '';
+  (plan.mapeo_campos || []).forEach((c, i) => {
+    const p = c.confianza || 1;
+    const color = p >= umbral ? '#1A7A45' : p >= umbral - 0.15 ? '#B87014' : '#C8102E';
+    const label = p >= umbral ? 'Actúa sola' : p >= umbral - 0.15 ? 'Revisar' : 'Corrección';
+    const badge = p >= umbral ? 'badge-ok' : p >= umbral - 0.15 ? 'badge-warn' : 'badge-error';
+    tbody.innerHTML += `
+      <tr>
+        <td><input type="text" id="mo_${i}" value="${c.campo_origen}"></td>
+        <td><input type="text" id="md_${i}" value="${c.campo_destino}"></td>
+        <td>
+          <div class="conf-bar">
+            <div class="conf-track"><div class="conf-fill" style="width:${p*100}%;background:${color}"></div></div>
+            <span class="conf-num" style="color:${color}">${p.toFixed(2)}</span>
+          </div>
+        </td>
+        <td><span class="badge ${badge}">${label}</span></td>
+      </tr>
+    `;
+  });
+
+  const flags = (plan.mapeo_campos || []).filter(c => (c.confianza || 1) < umbral);
+  const alertEl = document.getElementById('flags-alert');
+  if (flags.length > 0) {
+    alertEl.style.display = 'flex';
+    alertEl.textContent = `⚠️ ${flags.length} campo(s) con confianza baja — revisa antes de continuar.`;
+  } else {
+    alertEl.style.display = 'none';
+  }
+}
+
+function confirmarRevision() {
+  const plan = state.plan;
+  const umbral = getUmbral();
+  const mapeoEditado = (plan.mapeo_campos || []).map((c, i) => ({
+    campo_origen:  document.getElementById(`mo_${i}`)?.value || c.campo_origen,
+    campo_destino: document.getElementById(`md_${i}`)?.value || c.campo_destino,
+    confianza:     c.confianza,
+    flag:          (c.confianza || 1) < umbral,
+  }));
+  plan.mapeo_campos = mapeoEditado;
+  state.planConfirmado = plan;
+  renderEjecucion(plan);
+  goTo('ejecucion');
+}
+
+// ═══════════════════════════════════════════════════════════
+// EJECUCIÓN
+// ═══════════════════════════════════════════════════════════
+function renderEjecucion(plan) {
+  const necesarias = plan.credenciales_necesarias || [];
+  const section = document.getElementById('creds-section');
+  const spinner = document.getElementById('ejecucion-spinner');
+
+  if (necesarias.length > 0) {
+    section.style.display = 'block';
+    spinner.style.display = 'none';
+    const list = document.getElementById('creds-list');
+    list.innerHTML = necesarias.map(item => {
+      const isPass = ['password','contraseña','clave','pass'].some(w => item.toLowerCase().includes(w));
+      return `
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:12px;font-weight:600;color:var(--gray-500);text-transform:uppercase;letter-spacing:.5px">${item}</label>
+          <input type="${isPass ? 'password' : 'text'}" id="cred-${item}"
+            style="padding:10px 14px;border:1.5px solid var(--gray-100);border-radius:var(--radius);font-size:14px;font-family:'DM Sans',sans-serif;outline:none"
+            onfocus="this.style.borderColor='var(--red)'" onblur="this.style.borderColor='var(--gray-100)'">
+        </div>
+      `;
+    }).join('');
+  } else {
+    section.style.display = 'none';
+    spinner.style.display = 'flex';
+    ejecutarAgente();
+  }
+}
+
+async function iniciarEjecucion() {
+  const plan = state.planConfirmado;
+  const necesarias = plan.credenciales_necesarias || [];
+  const credenciales = {};
+  necesarias.forEach(item => {
+    credenciales[item] = document.getElementById('cred-' + item)?.value || '';
+  });
+  state.credenciales = credenciales;
+  document.getElementById('creds-section').style.display = 'none';
+  document.getElementById('ejecucion-spinner').style.display = 'flex';
+  ejecutarAgente();
+}
+
+async function ejecutarAgente() {
+  const msgs = [
+    'Iniciando el agente...', 'Abriendo el portal...', 'Navegando la plataforma...',
+    'Extrayendo datos...', 'Procesando resultados...'
+  ];
+  let mi = 0;
+  const tick = setInterval(() => {
+    document.getElementById('spinner-text').textContent = msgs[mi % msgs.length];
+    mi++;
+  }, 2500);
+
+  try {
+    const res = await fetch(`${API}/ejecutar`, { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        plan: state.planConfirmado,
+        credenciales: state.credenciales,
+        email: getEmail()
+      })
+    });
+    clearInterval(tick);
+    const data = await res.json();
+    state.resultados = data.resultados;
+    renderAprobacion(data.resultados);
+    goTo('aprobacion');
+  } catch(e) {
+    clearInterval(tick);
+    showAlert('Error en la ejecución: ' + e.message, 'error');
+    document.getElementById('ejecucion-spinner').style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// APROBACIÓN
+// ═══════════════════════════════════════════════════════════
+function renderAprobacion(resultados) {
+  const ok   = resultados.filter(r => r.estado === 'ok').length;
+  const warn = resultados.filter(r => r.estado === 'advertencia').length;
+  const err  = resultados.filter(r => r.estado === 'error').length;
+
+  document.getElementById('aprobacion-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Total pasos</div><div class="metric-value">${resultados.length}</div></div>
+    <div class="metric-card"><div class="metric-label">Exitosos</div><div class="metric-value green">${ok}</div></div>
+    <div class="metric-card"><div class="metric-label">Advertencias</div><div class="metric-value warn">${warn}</div></div>
+    <div class="metric-card"><div class="metric-label">Errores</div><div class="metric-value red">${err}</div></div>
+  `;
+
+  const tbody = document.getElementById('results-tbody');
+  tbody.innerHTML = resultados.map(r => {
+    const ic    = r.estado==='ok' ? '✅' : r.estado==='advertencia' ? '⚠️' : '❌';
+    const badge = r.estado==='ok' ? 'badge-ok' : r.estado==='advertencia' ? 'badge-warn' : 'badge-error';
+    return `<tr>
+      <td>${r.paso}</td>
+      <td><code style="font-size:12px;background:var(--gray-50);padding:2px 6px;border-radius:3px">${r.accion}</code></td>
+      <td><span class="badge ${badge}">${ic} ${r.estado}</span></td>
+    </tr>`;
+  }).join('');
+
+  const datos = Object.fromEntries(
+    resultados.filter(r => r.datos_extraidos).map(r => [`paso_${r.paso}`, r.datos_extraidos])
+  );
+  if (Object.keys(datos).length > 0) {
+    document.getElementById('datos-extraidos-section').style.display = 'block';
+    document.getElementById('datos-extraidos-pre').textContent = JSON.stringify(datos, null, 2);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// APROBACIÓN → REPORTE
+// ═══════════════════════════════════════════════════════════
+function aprobar() {
+  renderResultado(state.resultados, state.planConfirmado);
+  goTo('resultado');
+}
+
+function renderResultado(resultados, plan) {
+  const ok  = resultados.filter(r => r.estado === 'ok').length;
+  const err = resultados.filter(r => r.estado !== 'ok').length;
+
+  document.getElementById('resultado-summary').textContent =
+    `✓ Proceso completado: ${ok}/${resultados.length} pasos exitosos · Origen: ${plan.plataforma_origen} → Destino: ${plan.plataforma_destino}`;
+
+  document.getElementById('resultado-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Pasos exitosos</div><div class="metric-value green">${ok}</div></div>
+    <div class="metric-card"><div class="metric-label">Con errores</div><div class="metric-value red">${err}</div></div>
+    <div class="metric-card"><div class="metric-label">Origen</div><div class="metric-value" style="font-size:16px;font-family:'DM Sans'">${plan.plataforma_origen || '—'}</div></div>
+    <div class="metric-card"><div class="metric-label">Destino</div><div class="metric-value" style="font-size:16px;font-family:'DM Sans'">${plan.plataforma_destino || '—'}</div></div>
+  `;
+
+  renderMonteCarlo(err);
+  renderErrorChart(resultados);
+
+  const errTbody = document.getElementById('errores-tbody');
+  errTbody.innerHTML = resultados.map(r => {
+    const badge = r.estado==='ok' ? 'badge-ok' : r.estado==='advertencia' ? 'badge-warn' : 'badge-error';
+    return `<tr>
+      <td>${r.paso}</td>
+      <td><code style="font-size:12px;background:var(--gray-50);padding:2px 6px;border-radius:3px">${r.accion}</code></td>
+      <td><span class="badge ${badge}">${r.estado}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMonteCarlo(nErr) {
+  const historico = [15800, 18420, 22100, 17300, 19800, 16500, 21000, 18900];
+  const mean_hist = historico.reduce((a,b)=>a+b,0)/historico.length;
+  const std_hist  = Math.sqrt(historico.reduce((s,v)=>s+(v-mean_hist)**2,0)/historico.length);
+  const ratio     = nErr / Math.max(historico.length,1);
+
+  const N = 5000;
+  const samples = Array.from({length:N}, () => {
+    const z = Array.from({length:6}, ()=> -2 + Math.random()*4).reduce((a,b)=>a+b)/6 * Math.SQRT2;
+    return Math.abs(mean_hist * ratio + std_hist * ratio * z);
+  }).sort((a,b)=>a-b);
+
+  const mean   = samples.reduce((a,b)=>a+b,0)/N;
+  const ic_low  = samples[Math.floor(.025*N)];
+  const ic_high = samples[Math.floor(.975*N)];
+
+  document.getElementById('mc-metrics').innerHTML = `
+    <div class="metric-card"><div class="metric-label">Impacto medio</div><div class="metric-value red">$${Math.round(mean).toLocaleString()}</div><div class="metric-label">MXN</div></div>
+    <div class="metric-card"><div class="metric-label">IC 95% inferior</div><div class="metric-value" style="font-size:24px">$${Math.round(ic_low).toLocaleString()}</div><div class="metric-label">MXN</div></div>
+    <div class="metric-card"><div class="metric-label">IC 95% superior</div><div class="metric-value" style="font-size:24px">$${Math.round(ic_high).toLocaleString()}</div><div class="metric-label">MXN</div></div>
+  `;
+  document.getElementById('mc-caption').textContent =
+    `Simulación Monte Carlo con ${N.toLocaleString()} iteraciones · IC 95% sombreado · basado en ${historico.length} órdenes históricas`;
+
+  const counts = Array(40).fill(0);
+  const mn = samples[0], mx = samples[N-1];
+  samples.forEach(s => { counts[Math.min(39, Math.floor((s-mn)/(mx-mn+1)*40))]++; });
+  const xs = counts.map((_,i) => mn + (i/40)*(mx-mn));
+
+  Plotly.newPlot('chart-montecarlo', [
+    { x: xs.filter((_,i)=>xs[i]>=ic_low&&xs[i]<=ic_high),
+      y: counts.filter((_,i)=>xs[i]>=ic_low&&xs[i]<=ic_high),
+      type:'bar', name:'IC 95%', marker:{color:'rgba(200,16,46,0.2)'}, hoverinfo:'skip' },
+    { x: xs, y: counts, type:'bar', name:'Distribución',
+      marker:{color:'rgba(200,16,46,0.7)'} },
+    { x:[mean,mean], y:[0,Math.max(...counts)], type:'scatter', mode:'lines',
+      name:'Media', line:{color:'#C8102E',width:2,dash:'dash'} },
+  ], {
+    showlegend:false, paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    margin:{t:10,b:40,l:50,r:10},
+    xaxis:{title:'Impacto (MXN)',tickformat:'$,.0f',gridcolor:'#EEEBE6'},
+    yaxis:{title:'Frecuencia',gridcolor:'#EEEBE6'},
+    font:{family:"'DM Sans',sans-serif",size:12,color:'#4A4640'},
+    barmode:'overlay',
+  }, {responsive:true,displayModeBar:false});
+}
+
+function renderErrorChart(resultados) {
+  const byAction = {};
+  resultados.forEach(r => {
+    if (!byAction[r.accion]) byAction[r.accion] = {ok:0,advertencia:0,error:0};
+    byAction[r.accion][r.estado] = (byAction[r.accion][r.estado]||0)+1;
+  });
+  const acciones = Object.keys(byAction);
+
+  Plotly.newPlot('chart-errores', [
+    { x:acciones, y:acciones.map(a=>byAction[a].ok||0),          name:'OK',          type:'bar', marker:{color:'#1A7A45'} },
+    { x:acciones, y:acciones.map(a=>byAction[a].advertencia||0), name:'Advertencia', type:'bar', marker:{color:'#B87014'} },
+    { x:acciones, y:acciones.map(a=>byAction[a].error||0),       name:'Error',       type:'bar', marker:{color:'#C8102E'} },
+  ], {
+    barmode:'group', paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+    margin:{t:10,b:40,l:40,r:10},
+    xaxis:{gridcolor:'#EEEBE6'}, yaxis:{title:'Cantidad',gridcolor:'#EEEBE6'},
+    legend:{orientation:'h',y:1.1},
+    font:{family:"'DM Sans',sans-serif",size:12,color:'#4A4640'},
+  }, {responsive:true,displayModeBar:false});
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILIDADES
+// ═══════════════════════════════════════════════════════════
+function descargarReporte() {
+  const data = { plan:state.planConfirmado, resultados:state.resultados,
+    resumen:`${state.resultados?.filter(r=>r.estado==='ok').length}/${state.resultados?.length} pasos exitosos` };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'reporte_arcfast.json';
+  a.click();
+}
+
+function resetAll() {
+  fetch(`${API}/grabar/reiniciar`, {method:'POST'}).catch(()=>{});
+  state = { etapa:'captura', grabando:false, pausado:false,
+    faseA:null, plan:null, planConfirmado:null, resultados:null,
+    respuestas:{}, credenciales:{} };
+  resetRecordUI();
+  document.getElementById('url-info').style.display = 'none';
+  document.getElementById('ya-se-section').style.display = 'none';
+  document.getElementById('preguntas-list').innerHTML = '';
+  goTo('captura');
+}
+
+function showAlert(msg, type='info') {
+  const cls = {info:'alert-info',warn:'alert-warn',error:'alert-error',ok:'alert-ok'}[type];
+  const el = document.createElement('div');
+  el.className = `alert ${cls}`;
+  el.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999;max-width:400px;animation:slideIn .2s ease';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// Animación toast
+const style = document.createElement('style');
+style.textContent = '@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}';
+document.head.appendChild(style);
+</script>
+</body>
+</html>
