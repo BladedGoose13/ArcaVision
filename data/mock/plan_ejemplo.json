@@ -1,0 +1,147 @@
+{
+  "plataforma_origen": "N/A - Datos proporcionados por el usuario",
+  "plataforma_destino": "ACME System 1",
+  "objetivo": "Descargar reporte mensual de un vendedor específico en el sistema ACME",
+  "mapeo_campos": [
+    {
+      "campo_origen": "Vendor TaxID (dato del usuario)",
+      "campo_destino": "Vendor TaxID",
+      "descripcion": "Identificador fiscal del vendedor para buscar el reporte"
+    },
+    {
+      "campo_origen": "Mes (dato del usuario)",
+      "campo_destino": "Month",
+      "descripcion": "Mes del reporte a descargar"
+    },
+    {
+      "campo_origen": "Año (dato del usuario)",
+      "campo_destino": "Year",
+      "descripcion": "Año del reporte a descargar"
+    }
+  ],
+  "credenciales_necesarias": [
+    "Email de acceso a ACME System 1",
+    "Contraseña de acceso a ACME System 1",
+    "Vendor TaxID válido para consultar reportes"
+  ],
+  "pasos": [
+    {
+      "numero": 1,
+      "sistema": "destino",
+      "intencion": "Abrir la página de login del sistema ACME",
+      "accion": "navegar",
+      "valor": "https://acme-test.uipath.com/login",
+      "validacion": "Aparece la página con título 'Login' y formulario de autenticación"
+    },
+    {
+      "numero": 2,
+      "sistema": "destino",
+      "intencion": "Ingresar el correo electrónico en el campo de Email",
+      "accion": "escribir",
+      "valor": "{{email_usuario}}",
+      "validacion": "El campo de texto bajo 'Email:' muestra el correo ingresado"
+    },
+    {
+      "numero": 3,
+      "sistema": "destino",
+      "intencion": "Ingresar la contraseña en el campo Password",
+      "accion": "escribir",
+      "valor": "{{contraseña_usuario}}",
+      "validacion": "El campo de texto bajo 'Password:' muestra puntos ocultando la contraseña"
+    },
+    {
+      "numero": 4,
+      "sistema": "destino",
+      "intencion": "Hacer clic en el botón azul 'Login' para iniciar sesión",
+      "accion": "click",
+      "valor": "botón azul con texto 'Login' debajo del formulario",
+      "validacion": "Aparece el Dashboard con mensaje 'Welcome' y lista de opciones"
+    },
+    {
+      "numero": 5,
+      "sistema": "destino",
+      "intencion": "Si aparece diálogo de guardar contraseña del navegador, cerrarlo",
+      "accion": "click",
+      "valor": "botón 'No, gracias' en el diálogo emergente del navegador",
+      "validacion": "El diálogo desaparece y se ve el Dashboard completo"
+    },
+    {
+      "numero": 6,
+      "sistema": "destino",
+      "intencion": "Hacer clic en la opción 'Reports' del menú principal",
+      "accion": "click",
+      "valor": "botón con icono de documento y texto 'Reports' en la lista vertical de opciones",
+      "validacion": "Aparece un submenú con opciones de reportes"
+    },
+    {
+      "numero": 7,
+      "sistema": "destino",
+      "intencion": "Seleccionar la opción 'Download Monthly Report' del submenú",
+      "accion": "click",
+      "valor": "opción 'Download Monthly Report' en el menú desplegable",
+      "validacion": "Se carga la página 'Reports - Download Monthly Report' con formulario"
+    },
+    {
+      "numero": 8,
+      "sistema": "destino",
+      "intencion": "Ingresar el identificador del vendedor en el campo Vendor TaxID",
+      "accion": "escribir",
+      "valor": "{{vendor_taxid}}",
+      "validacion": "El campo de texto bajo 'Vendor TaxID:' muestra el valor ingresado"
+    },
+    {
+      "numero": 9,
+      "sistema": "destino",
+      "intencion": "Seleccionar el mes del reporte en el desplegable Month",
+      "accion": "seleccionar",
+      "valor": "{{mes_reporte}}",
+      "validacion": "El desplegable bajo 'Month:' muestra el mes seleccionado"
+    },
+    {
+      "numero": 10,
+      "sistema": "destino",
+      "intencion": "Seleccionar el año del reporte en el desplegable Year",
+      "accion": "seleccionar",
+      "valor": "{{año_reporte}}",
+      "validacion": "El desplegable bajo 'Year:' muestra el año seleccionado"
+    },
+    {
+      "numero": 11,
+      "sistema": "destino",
+      "intencion": "Hacer clic en el botón para descargar el reporte",
+      "accion": "click",
+      "valor": "botón azul con texto 'Download Report'",
+      "validacion": "Se descarga el archivo del reporte o aparece mensaje de confirmación"
+    }
+  ],
+  "excepciones": [
+    {
+      "situacion": "Credenciales incorrectas - aparece mensaje 'These credentials do not match our records'",
+      "accion": "Verificar email y contraseña con el usuario, reintentar con credenciales correctas"
+    },
+    {
+      "situacion": "No se encuentra reporte - aparece diálogo 'No report found for this vendor / month / year that you have specified'",
+      "accion": "Hacer clic en 'Aceptar', notificar al usuario que no existe reporte para esos parámetros"
+    },
+    {
+      "situacion": "Sesión expirada o página no carga",
+      "accion": "Refrescar la página y volver a iniciar sesión desde el paso 1"
+    },
+    {
+      "situacion": "Vendor TaxID inválido o no reconocido",
+      "accion": "Solicitar al usuario un Vendor TaxID válido registrado en el sistema"
+    }
+  ],
+  "reporte_incluir": [
+    "Vendor TaxID consultado",
+    "Mes y año del reporte solicitado",
+    "Estado de la descarga (exitosa o fallida)",
+    "Nombre del archivo descargado si aplica",
+    "Mensaje de error si no se encontró el reporte"
+  ],
+  "credenciales_obtenidas": {
+    "email_usuario": "androsizhar@icloud.com",
+    "contraseña_usuario": "HellowWorld@21",
+    "parametros_reporte": "vendedor 1"
+  }
+}
