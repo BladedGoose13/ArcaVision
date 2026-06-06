@@ -32,6 +32,12 @@ cp .env.example .env      # llena tus API keys
 playwright install chromium
 streamlit run frontend/app.py
 ```
+## Diagrams
+
+![Arca AI Agent Workflow](diagramas/arca_ai_agent_workflow(1).png)
+
+![Bayesian Confidence Scoring](diagramas/bayesian_confidence_scoring.png)
+
 
 ## División de trabajo (hackathon 24h)
 
