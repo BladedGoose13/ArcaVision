@@ -34,7 +34,7 @@ streamlit run frontend/app.py
 ```
 ## Diagrams
 
-![Arca AI Agent Workflow](arca_ai_agent_workflow (1).png)
+![Arca AI Agent Workflow](arca_ai_agent_workflow.png)
 
 ![Bayesian Confidence Scoring](diagrams/bayesian_confidence_scoring.png)
 
