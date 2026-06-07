@@ -17,7 +17,9 @@ pyaudio>=0.2.14             # en Windows: pip install pipwin && pipwin install p
 fastapi>=0.110.0
 uvicorn>=0.29.0
 python-multipart>=0.0.9
+pydantic>=2.0.0            # validación de modelos (FastAPI lo requiere)
 httpx>=0.27.0              # cliente HTTP para ElevenLabs TTS (voz)
+streamlit>=1.35.0          # frontend alternativo (opcional)
 
 # ── Reportes ─────────────────────────────────────────────────────────────────
 openpyxl>=3.1.0             # Excel
