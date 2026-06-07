@@ -1,31 +1,37 @@
-# Core AI
+# ── Core AI ──────────────────────────────────────────────────────────────────
 anthropic>=0.40.0
+groq>=0.9.0
 
-# Browser agent
-playwright>=1.44.0
+# ── Browser agent ────────────────────────────────────────────────────────────
+browser-use>=0.1.0          # motor principal — instalar con: pip install browser-use
+langchain-anthropic>=0.1.0  # requerido por browser-use
+playwright>=1.44.0          # fallback si browser-use no está
+
+# ── Grabador ─────────────────────────────────────────────────────────────────
 pillow>=10.0.0
 mss>=9.0.0
 pynput>=1.7.0
+pyaudio>=0.2.14             # en Windows: pip install pipwin && pipwin install pyaudio
 
-# Audio / grabación
-pyaudio>=0.2.14
+# ── Backend ──────────────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn>=0.29.0
+python-multipart>=0.0.9
 
-# Frontend
-streamlit>=1.35.0
+# ── Reportes ─────────────────────────────────────────────────────────────────
+openpyxl>=3.1.0             # Excel
+reportlab>=4.2.0            # PDF (opcional)
 
-# Post-procesamiento
-pymongo>=4.7.0
-google-generativeai>=0.7.0
-solana>=0.34.0
-reportlab>=4.2.0
+# ── Post-procesamiento ───────────────────────────────────────────────────────
+pymongo>=4.7.0              # MongoDB (opcional)
+google-generativeai>=0.7.0  # Gemini (opcional)
+solana>=0.34.0              # Solana audit trail (opcional)
+sendgrid>=6.11.0            # Email alternativo (opcional)
 
-# Dashboard
+# ── Dashboard / análisis ─────────────────────────────────────────────────────
 plotly>=5.22.0
 pandas>=2.2.0
 numpy>=1.26.0
 
-# Email
-sendgrid>=6.11.0
-
-# Utils
+# ── Utils ────────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0

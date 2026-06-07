@@ -1,256 +1,336 @@
+"""
+browser_agent/agent.py
+-----------------------
+Agente principal usando browser_use — más robusto que Playwright puro.
+Fallback a Playwright+Vision si browser_use no está disponible.
+"""
+
 import asyncio
 import json
-import base64
+import os
+import hashlib
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from datetime import datetime
 from pathlib import Path
-from io import BytesIO
-
-from PIL import Image
-from playwright.async_api import async_playwright
-from anthropic import Anthropic
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
-client = Anthropic()
 
 
-async def analizar_pagina_completa(page, intencion: str) -> dict:
+# ─── Motor principal: browser_use ────────────────────────────────────────────
+
+async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
     """
-    Analiza la página combinando HTML + screenshot para encontrar elementos.
-    Como un humano que lee y ve al mismo tiempo — resistente a cambios de UI.
+    Ejecuta el plan con browser_use — el agente razona y navega solo,
+    sin pasos ni coordenadas fijas. Mucho más robusto que Playwright manual.
     """
-    # Capturar screenshot
-    screenshot = await page.screenshot()
-    img = Image.open(BytesIO(screenshot))
-    img.thumbnail((1280, 720))
-    buf = BytesIO()
-    img.save(buf, format="JPEG", quality=75)
-    screenshot_b64 = base64.b64encode(buf.getvalue()).decode()
+    from browser_use import Agent
+    from langchain_anthropic import ChatAnthropic
 
-    # Extraer HTML simplificado (solo elementos interactivos)
-    html_simplificado = await page.evaluate("""() => {
-        const elementos = [];
-        const selectores = 'input, button, a, select, textarea, [role="button"], [onclick]';
-        document.querySelectorAll(selectores).forEach((el, i) => {
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-                elementos.push({
-                    tag: el.tagName.toLowerCase(),
-                    tipo: el.type || '',
-                    texto: (el.textContent || el.value || el.placeholder || '').trim().substring(0, 50),
-                    nombre: el.name || el.id || el.className.split(' ')[0] || '',
-                    placeholder: el.placeholder || '',
-                    x: Math.round(rect.x + rect.width/2),
-                    y: Math.round(rect.y + rect.height/2),
-                    visible: rect.top >= 0 && rect.bottom <= window.innerHeight
-                });
-            }
-        });
-        return JSON.stringify(elementos.slice(0, 30));
-    }""")
+    todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
+    origen  = plan.get("plataforma_origen", "")
+    destino = plan.get("plataforma_destino", "")
+    objetivo = plan.get("objetivo", "Ejecutar el proceso aprendido")
 
-    vp = page.viewport_size or {"width": 1280, "height": 720}
+    creds_texto = "\n".join([f"- {k}: {v}" for k, v in todas.items() if v])
+    mapeo = plan.get("mapeo_campos", [])
+    mapeo_texto = "\n".join([
+        f"- '{m['campo_origen']}' en {origen} → '{m['campo_destino']}' en {destino}"
+        for m in mapeo
+    ]) if mapeo else "Aprende el mapeo observando la página"
 
-    respuesta = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/jpeg",
-                        "data": screenshot_b64
-                    }
-                },
-                {
-                    "type": "text",
-                    "text": f"""Pantalla {vp['width']}x{vp['height']}px.
+    pasos_texto = "\n".join([
+        f"{p['numero']}. [{p['accion'].upper()}] {p['intencion']}"
+        + (f" → valor: {p['valor']}" if p.get('valor') else "")
+        for p in plan.get("pasos", [])
+    ])
 
-Elementos interactivos detectados en el HTML:
-{html_simplificado}
+    task = f"""
+Eres un agente que automatiza procesos entre dos sistemas web para Arca Continental.
 
-Tarea: {intencion}
+OBJETIVO: {objetivo}
 
-Usa TANTO la imagen como el HTML para encontrar el elemento correcto.
-El elemento puede tener nombres distintos (login/iniciar sesión, submit/enviar, etc).
-Elige el elemento que mejor cumple la intención, sin importar idioma o posición.
+SISTEMAS:
+- Origen: {origen}
+- Destino: {destino}
 
-Responde SOLO JSON:
-{{"encontrado": true/false, "x": <int>, "y": <int>, "confianza": <0.0-1.0>, "descripcion": "<qué encontraste y por qué>"}}"""
-                }
-            ]
-        }]
+CREDENCIALES:
+{creds_texto if creds_texto else "Ninguna — infiere del contexto"}
+
+MAPEO DE CAMPOS:
+{mapeo_texto}
+
+PASOS APRENDIDOS (guíate por la intención, no por coordenadas):
+{pasos_texto}
+
+INSTRUCCIONES:
+1. Ejecuta el proceso completo de principio a fin
+2. Si un elemento no está visible, haz scroll
+3. Si algo falla, intenta una alternativa razonable
+4. Al terminar, extrae los datos más importantes del resultado
+5. NO pares hasta completar el objetivo o agotar opciones razonables
+6. Reporta cada acción importante
+
+Al finalizar, resume en JSON qué hiciste y qué datos extrajiste.
+"""
+
+    print(f"\n🤖 browser_use ejecutando: {objetivo}")
+    print(f"   Sistemas: {origen} → {destino}\n")
+
+    llm = ChatAnthropic(
+        model="claude-opus-4-5",
+        api_key=os.getenv("ANTHROPIC_API_KEY")
     )
 
-    raw = respuesta.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip("json").strip()
-    return json.loads(raw)
+    agent = Agent(task=task, llm=llm)
 
+    try:
+        result = await agent.run(max_steps=50)
+        resultado_texto = str(result)
+        print(f"\n✅ browser_use completó el proceso")
+        print(f"   {resultado_texto[:200]}...")
+        estado = "ok"
+    except Exception as e:
+        resultado_texto = f"Error: {e}"
+        print(f"\n❌ Error en browser_use: {e}")
+        estado = "error"
 
-async def ejecutar_paso(page, paso: dict, credenciales: dict) -> dict:
-    """Ejecuta un paso del plan con reintentos y análisis HTML."""
-    accion = paso["accion"]
-    intencion = paso["intencion"]
-    valor = paso.get("valor", "")
-
-    # Reemplazar credenciales
-    for key, val in {**credenciales, **credenciales.get("credenciales_obtenidas", {})}.items():
-        if isinstance(val, str):
-            valor = valor.replace(f"{{{key}}}", val)
-
-    resultado = {"paso": paso["numero"], "accion": accion, "estado": "pendiente"}
-
-    for intento in range(1, 4):
-        try:
-            if accion == "navegar":
-                await page.goto(valor, wait_until="domcontentloaded", timeout=15000)
-                await page.wait_for_timeout(1500)
-                resultado["estado"] = "ok"
-                break
-
-            elif accion in ("click", "escribir", "seleccionar"):
-                loc = await analizar_pagina_completa(page, intencion)
-
-                if not loc.get("encontrado") or loc.get("confianza", 0) < 0.5:
-                    print(f"    ⚠️  Intento {intento}: no encontré '{intencion[:50]}'")
-                    await page.wait_for_timeout(1500)
-                    continue
-
-                x, y = loc["x"], loc["y"]
-                print(f"    👁  {loc['descripcion'][:60]} → ({x},{y}) {loc['confianza']:.0%}")
-
-                if accion == "click":
-                    await page.mouse.click(x, y)
-                elif accion == "escribir":
-                    await page.mouse.click(x, y)
-                    await page.keyboard.press("Meta+a")
-                    await page.keyboard.type(valor, delay=50)
-                elif accion == "seleccionar":
-                    await page.mouse.click(x, y)
-                    await page.wait_for_timeout(400)
-                    if valor:
-                        op = await analizar_pagina_completa(page, f"opción '{valor}' en dropdown abierto")
-                        if op.get("encontrado"):
-                            await page.mouse.click(op["x"], op["y"])
-
-                resultado["estado"] = "ok"
-                break
-
-            elif accion == "verificar":
-                loc = await analizar_pagina_completa(page, intencion)
-                resultado["estado"] = "ok" if loc.get("encontrado") else "advertencia"
-                break
-
-            elif accion == "extraer":
-                # Extraer texto visible de la página
-                texto = await page.evaluate("""() => document.body.innerText.substring(0, 2000)""")
-                resultado["datos_extraidos"] = texto
-                resultado["estado"] = "ok"
-                break
-
-            elif accion == "esperar":
-                await page.wait_for_timeout(int(valor or 1) * 1000)
-                resultado["estado"] = "ok"
-                break
-
-            await page.wait_for_timeout(800)
-
-        except Exception as e:
-            print(f"    ❌ Intento {intento}: {e}")
-            if intento < 3:
-                await page.wait_for_timeout(2000)
-
-    icono = "✅" if resultado["estado"] == "ok" else "⚠️ " if resultado["estado"] == "advertencia" else "❌"
-    print(f"  {icono} Paso {paso['numero']}: {intencion[:65]}")
-    return resultado
-
-
-def enviar_reporte(destinatario: str, plan: dict, resultados: list, datos_extraidos: dict):
-    remitente = os.getenv("EMAIL_REMITENTE", "")
-    password_email = os.getenv("EMAIL_PASSWORD", "")
-
-    ok = sum(1 for r in resultados if r["estado"] == "ok")
-    total = len(resultados)
-
+    # Guardar reporte JSON
     reporte = {
-        "plan": plan,
-        "resultados": resultados,
-        "datos": datos_extraidos,
-        "resumen": f"{ok}/{total} pasos exitosos",
-        "fecha": datetime.now().isoformat()
+        "objetivo":          objetivo,
+        "plataforma_origen": origen,
+        "plataforma_destino": destino,
+        "resultado":         resultado_texto,
+        "fecha":             datetime.now().isoformat(),
+        "motor":             "browser_use",
     }
-
     Path("sesiones").mkdir(exist_ok=True)
     with open("sesiones/reporte.json", "w", encoding="utf-8") as f:
         json.dump(reporte, f, indent=2, ensure_ascii=False)
 
-    if not remitente or not password_email:
-        print(f"  📄 Reporte guardado: sesiones/reporte.json")
-        return
-
-    cuerpo = f"""
-Hack4Her — Always on Shelf
-Reporte de ejecución automática
-
-Proceso: {plan.get('objetivo', '')}
-Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-Resultado: {ok}/{total} pasos exitosos
-
-Datos extraídos:
-{json.dumps(datos_extraidos, indent=2, ensure_ascii=False)}
-"""
-    msg = MIMEMultipart()
-    msg["From"] = remitente
-    msg["To"] = destinatario
-    msg["Subject"] = f"Reporte Bot — {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    msg.attach(MIMEText(cuerpo, "plain"))
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(remitente, password_email)
-            server.sendmail(remitente, destinatario, msg.as_string())
-        print(f"  📧 Reporte enviado a {destinatario}")
-    except Exception as e:
-        print(f"  ⚠️  Email no enviado: {e} — reporte guardado localmente")
+    return [{"paso": 1, "accion": "browser_use", "estado": estado,
+             "datos_extraidos": resultado_texto}]
 
 
-async def ejecutar(plan: dict, credenciales: dict, email_reporte: str):
-    print(f"\n🤖 Ejecutando: {plan.get('objetivo')}")
-    print(f"   Pasos: {len(plan.get('pasos', []))}\n")
+# ─── Fallback: Playwright + Vision ────────────────────────────────────────────
+
+async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte: str) -> list:
+    """
+    Fallback cuando browser_use no está instalado.
+    Playwright paso a paso con Claude Vision para localizar elementos.
+    """
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    from playwright.async_api import async_playwright
+    from anthropic import Anthropic
+
+    client = Anthropic()
+
+    async def analizar_pagina(page, intencion: str) -> dict:
+        screenshot = await page.screenshot()
+        img = Image.open(BytesIO(screenshot))
+        img.thumbnail((1280, 720))
+        buf = BytesIO()
+        img.save(buf, format="JPEG", quality=75)
+        sc_b64 = base64.b64encode(buf.getvalue()).decode()
+
+        html = await page.evaluate("""() => {
+            const els = [];
+            document.querySelectorAll('input,button,a,select,textarea,[role="button"]').forEach((el,i) => {
+                const r = el.getBoundingClientRect();
+                if (r.width > 0 && r.height > 0)
+                    els.push({tag:el.tagName.toLowerCase(),texto:(el.textContent||el.value||el.placeholder||'').trim().slice(0,40),
+                              nombre:el.name||el.id||'',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)});
+            });
+            return JSON.stringify(els.slice(0,25));
+        }""")
+
+        resp = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=200,
+            messages=[{"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": sc_b64}},
+                {"type": "text", "text": f"Elementos: {html}\nTarea: {intencion}\nResponde SOLO JSON: {{\"encontrado\":bool,\"x\":int,\"y\":int,\"confianza\":float}}"}
+            ]}]
+        )
+        raw = resp.content[0].text.strip()
+        if raw.startswith("```"): raw = raw.split("```")[1].lstrip("json").strip()
+        return json.loads(raw)
 
     resultados = []
-    datos_extraidos = {}
-
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
         page = await browser.new_page(viewport={"width": 1280, "height": 720})
 
         for paso in plan.get("pasos", []):
-            resultado = await ejecutar_paso(page, paso, credenciales)
-            resultados.append(resultado)
+            accion   = paso["accion"]
+            intencion = paso["intencion"]
+            valor    = paso.get("valor", "")
+            todas    = {**credenciales, **plan.get("credenciales_obtenidas", {})}
+            for k, v in todas.items():
+                if isinstance(v, str): valor = valor.replace(f"{{{k}}}", v)
 
-            # Guardar datos extraídos
-            if resultado.get("datos_extraidos"):
-                datos_extraidos[f"paso_{paso['numero']}"] = resultado["datos_extraidos"]
+            res = {"paso": paso["numero"], "accion": accion, "estado": "error"}
+            try:
+                if accion == "navegar":
+                    await page.goto(valor, wait_until="domcontentloaded", timeout=15000)
+                    await page.wait_for_timeout(1500)
+                    res["estado"] = "ok"
+                elif accion in ("click", "escribir", "seleccionar"):
+                    loc = await analizar_pagina(page, intencion)
+                    if loc.get("encontrado") and loc.get("confianza", 0) >= 0.5:
+                        x, y = loc["x"], loc["y"]
+                        if accion == "click":
+                            await page.mouse.click(x, y)
+                        elif accion == "escribir":
+                            await page.mouse.click(x, y)
+                            await page.keyboard.press("Control+a")
+                            await page.keyboard.type(valor, delay=40)
+                        res["estado"] = "ok"
+                    else:
+                        res["estado"] = "advertencia"
+                elif accion == "extraer":
+                    texto = await page.evaluate("() => document.body.innerText.substring(0,2000)")
+                    res["datos_extraidos"] = texto
+                    res["estado"] = "ok"
+                elif accion == "esperar":
+                    await page.wait_for_timeout(int(valor or 1) * 1000)
+                    res["estado"] = "ok"
+                elif accion == "verificar":
+                    loc = await analizar_pagina(page, intencion)
+                    res["estado"] = "ok" if loc.get("encontrado") else "advertencia"
+            except Exception as e:
+                print(f"    ❌ Paso {paso['numero']}: {e}")
 
-            # Solo abortar en errores críticos (primeros pasos)
-            if resultado["estado"] == "error" and paso["numero"] <= 3:
-                print(f"\n  🚨 Error crítico en paso {paso['numero']} — abortando")
+            icono = "✅" if res["estado"]=="ok" else "⚠️ " if res["estado"]=="advertencia" else "❌"
+            print(f"  {icono} Paso {paso['numero']}: {intencion[:65]}")
+            resultados.append(res)
+
+            if res["estado"] == "error" and paso["numero"] <= 2:
+                print("  🚨 Error crítico — abortando")
                 break
 
         await browser.close()
 
+    return resultados
+
+
+# ─── Entry point ─────────────────────────────────────────────────────────────
+
+async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
+    """
+    Intenta browser_use primero. Si no está instalado, usa Playwright+Vision.
+    Después genera reporte, Excel, guarda en SQLite y envía email.
+    """
+    print(f"\n🤖 Ejecutando: {plan.get('objetivo')}")
+
+    # Intentar browser_use
+    try:
+        import browser_use  # noqa
+        resultados = await ejecutar_con_browser_use(plan, credenciales, email_reporte)
+        motor = "browser_use"
+    except ImportError:
+        print("  ℹ️  browser_use no instalado — usando Playwright+Vision")
+        resultados = await ejecutar_con_playwright(plan, credenciales, email_reporte)
+        motor = "playwright"
+
     ok = sum(1 for r in resultados if r["estado"] == "ok")
     print(f"\n{'─'*50}")
+    print(f"  Motor   : {motor}")
     print(f"  Resultado: {ok}/{len(resultados)} pasos exitosos")
 
-    enviar_reporte(email_reporte, plan, resultados, datos_extraidos)
+    # Post-procesamiento
+    datos_extraidos = {
+        f"paso_{r['paso']}": r["datos_extraidos"]
+        for r in resultados if r.get("datos_extraidos")
+    }
+
+    # Guardar en SQLite
+    try:
+        from database.db import guardar_sesion
+        guardar_sesion(
+            plan=plan,
+            resultados=resultados,
+            email=email_reporte,
+            duracion_seg=None,
+        )
+        print("  💾 Guardado en SQLite")
+    except Exception as e:
+        print(f"  ⚠️  SQLite no disponible: {e}")
+
+    # Generar Excel + ticket HTML
+    try:
+        from postprocessing.reporte import generar_excel, generar_ticket_html, guardar_ticket
+        datos_reporte = {
+            "objetivo":  plan.get("objetivo", "Proceso"),
+            "origen":    plan.get("plataforma_origen", ""),
+            "destino":   plan.get("plataforma_destino", ""),
+            "resultados": resultados,
+            "datos_extraidos": datos_extraidos,
+            "fecha":     datetime.now().isoformat(),
+        }
+        excel_path  = generar_excel(datos_reporte)
+        ticket_html = generar_ticket_html(datos_reporte)
+        ticket_path = guardar_ticket(ticket_html)
+        print(f"  📊 Excel:  {excel_path}")
+        print(f"  🎫 Ticket: {ticket_path}")
+    except Exception as e:
+        excel_path  = None
+        ticket_path = None
+        print(f"  ⚠️  Reportes no generados: {e}")
+
+    # Email
+    _enviar_email(email_reporte, plan, resultados, datos_extraidos, excel_path)
+
     return resultados
+
+
+def _enviar_email(destinatario: str, plan: dict, resultados: list,
+                  datos: dict, excel_path: str = None):
+    remitente = os.getenv("EMAIL_REMITENTE", "")
+    password  = os.getenv("EMAIL_PASSWORD", "")
+    if not remitente or not password or not destinatario:
+        print(f"  📄 Email desactivado — agrega EMAIL_REMITENTE y EMAIL_PASSWORD al .env")
+        return
+
+    ok    = sum(1 for r in resultados if r["estado"] == "ok")
+    total = len(resultados)
+    fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    cuerpo = f"""
+ArcFast — Arca Continental
+Reporte de ejecución automática
+
+Proceso : {plan.get('objetivo', '')}
+Fecha   : {fecha}
+Resultado: {ok}/{total} pasos exitosos
+
+Datos extraídos:
+{json.dumps(datos, indent=2, ensure_ascii=False)[:1500]}
+"""
+    msg = MIMEMultipart()
+    msg["From"]    = remitente
+    msg["To"]      = destinatario
+    msg["Subject"] = f"ArcFast — Reporte {fecha} — {ok}/{total} pasos"
+    msg.attach(MIMEText(cuerpo, "plain"))
+
+    if excel_path and Path(excel_path).exists():
+        with open(excel_path, "rb") as f:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment; filename=reporte_arcfast.xlsx")
+            msg.attach(part)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remitente, password)
+            server.sendmail(remitente, destinatario, msg.as_string())
+        print(f"  📧 Reporte enviado a {destinatario}")
+    except Exception as e:
+        print(f"  ⚠️  Email no enviado: {e}")
