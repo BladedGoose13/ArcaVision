@@ -269,9 +269,33 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
         Ejecuta autónomamente con nuevos datos.
       </div>
       <div class="login-hero-stats">
-        <div class="hero-stat"><div class="hero-stat-num">100%</div><div class="hero-stat-label">Sin hardcoding</div></div>
-        <div class="hero-stat"><div class="hero-stat-num">IA</div><div class="hero-stat-label">Vision + Audio</div></div>
-        <div class="hero-stat"><div class="hero-stat-num">0</div><div class="hero-stat-label">Reglas manuales</div></div>
+        <!-- Logo Arca Continental 100 años -->
+        <svg width="200" height="72" viewBox="0 0 200 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Arca Continental 100 años">
+          <!-- Centenario "100" con círculo -->
+          <circle cx="28" cy="36" r="26" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+          <circle cx="28" cy="36" r="22" fill="none" stroke="#C8102E" stroke-width="1.5"/>
+          <!-- "1" -->
+          <text x="14" y="42" font-family="'Bebas Neue',sans-serif" font-size="24" fill="white" letter-spacing="0">1</text>
+          <!-- Doble "0" estilizado -->
+          <text x="23" y="42" font-family="'Bebas Neue',sans-serif" font-size="24" fill="white" letter-spacing="0">00</text>
+          <!-- AÑOS debajo -->
+          <text x="28" y="54" font-family="'DM Sans',sans-serif" font-size="7" fill="rgba(255,255,255,0.6)" text-anchor="middle" letter-spacing="2">AÑOS</text>
+          <!-- Hexágono icono derecho -->
+          <g transform="translate(62,10)">
+            <polygon points="18,2 32,10 32,26 18,34 4,26 4,10" fill="none" stroke="#C8102E" stroke-width="1.5"/>
+            <polygon points="18,8 27,13 27,23 18,28 9,23 9,13" fill="#C8102E" opacity="0.3"/>
+            <!-- Flecha dentro -->
+            <polyline points="12,18 18,12 24,18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="18" y1="12" x2="18" y2="26" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </g>
+          <!-- ARCA -->
+          <text x="104" y="32" font-family="'Bebas Neue',sans-serif" font-size="22" fill="white" letter-spacing="3">ARCA</text>
+          <!-- CONTINENTAL -->
+          <text x="104" y="47" font-family="'Bebas Neue',sans-serif" font-size="14" fill="#C8102E" letter-spacing="2">CONTINENTAL</text>
+          <!-- línea decorativa -->
+          <line x1="104" y1="54" x2="196" y2="54" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+          <text x="104" y="64" font-family="'DM Sans',sans-serif" font-size="8" fill="rgba(255,255,255,0.35)" letter-spacing="1.5">BEBIDAS · MÉXICO</text>
+        </svg>
       </div>
     </div>
   </div>
@@ -326,7 +350,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
     </div>
 
     <!-- REGISTER FORM -->
-    <div id="register-box" style="display:none">
+    <div id="register-box" style="display:none;flex-direction:column;gap:0">
       <div class="login-panel-title">Crear cuenta</div>
       <div class="login-panel-sub">Nuevo usuario de ArcFast</div>
 
@@ -349,9 +373,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
       </div>
       <div class="form-group">
         <label class="form-label">Contraseña</label>
-        <input class="form-input" type="password" id="reg-pwd" placeholder="Mínimo 6 caracteres">
+        <input class="form-input" type="password" id="reg-pwd" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')doRegister()">
       </div>
-      <button class="btn-login" onclick="doRegister()">Crear cuenta →</button>
+      <button class="btn-login" onclick="doRegister()" style="margin-top:8px">Crear cuenta →</button>
 
       <div class="login-footer">
         ¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a>
@@ -582,14 +606,30 @@ async function doRegister() {
     const res  = await fetch(`${API}/auth/register`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password:pwd,rol,empresa}) });
     const data = await res.json();
     if (data.error) { showErr(err, data.error); return; }
+    // Registro exitoso → entrar directamente
     user = data;
     enterApp();
   } catch(e) { showErr(err, 'Error conectando con el servidor'); }
 }
 
 function showErr(el, msg) { el.textContent = msg; el.style.display = 'flex'; }
-function showLogin()    { document.getElementById('login-box').style.display='flex'; document.getElementById('register-box').style.display='none'; }
-function showRegister() { document.getElementById('login-box').style.display='none'; document.getElementById('register-box').style.display='flex'; }
+function showLogin() {
+  document.getElementById('login-box').style.display='flex';
+  document.getElementById('login-box').style.flexDirection='column';
+  document.getElementById('register-box').style.display='none';
+  document.getElementById('login-error').style.display='none';
+}
+function showRegister() {
+  document.getElementById('login-box').style.display='none';
+  document.getElementById('register-box').style.display='flex';
+  document.getElementById('register-box').style.flexDirection='column';
+  document.getElementById('reg-error').style.display='none';
+  // Reset fields
+  ['reg-email','reg-empresa','reg-pwd'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
 
 function enterApp() {
   document.getElementById('login-screen').style.display = 'none';
