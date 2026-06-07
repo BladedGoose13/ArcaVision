@@ -69,6 +69,43 @@ def root():
     return FileResponse(os.path.join(frontend_path, "index.html"))
 
 
+# ─── Auth ─────────────────────────────────────────────────────────────────────
+class LoginReq(BaseModel):
+    email: str
+    password: str
+    rol: Optional[str] = None
+
+class RegisterReq(BaseModel):
+    email: str
+    password: str
+    rol: str
+    empresa: str
+
+@app.post("/auth/login")
+def auth_login(req: LoginReq):
+    from database.db import login
+    user = login(req.email, req.password)
+    if not user:
+        return {"error": "Email o contraseña incorrectos"}
+    if req.rol and user["rol"] != req.rol:
+        return {"error": f"Esta cuenta no tiene acceso al portal de {req.rol}"}
+    return {
+        "id":      user["id"],
+        "email":   user["email"],
+        "rol":     user["rol"],
+        "empresa": user["empresa"],
+    }
+
+@app.post("/auth/register")
+def auth_register(req: RegisterReq):
+    from database.db import registrar_usuario
+    try:
+        user = registrar_usuario(req.email, req.password, req.rol, req.empresa)
+        return user
+    except ValueError as e:
+        return {"error": str(e)}
+
+
 # ─── Grabación ────────────────────────────────────────────────────────────────
 @app.post("/grabar/iniciar")
 def grabar_iniciar(req: IniciarGrabacionReq):
