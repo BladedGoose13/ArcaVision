@@ -59,6 +59,7 @@ async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte
         for p in plan.get("pasos", [])
     ])
 
+    n_pasos = len(plan.get("pasos", []))
     task = f"""Eres un agente que automatiza procesos entre dos sistemas web para Arca Continental.
 
 OBJETIVO: {objetivo}
@@ -70,33 +71,45 @@ CREDENCIALES:
 MAPEO DE CAMPOS:
 {mapeo_texto}
 
-PASOS (guíate por la intención, no por coordenadas):
+PASOS A EJECUTAR ({n_pasos} en total — guíate por la intención, no por coordenadas):
 {pasos_texto}
 
-INSTRUCCIONES:
-1. Ejecuta el proceso completo de principio a fin
-2. Si un elemento no está visible, haz scroll antes de rendirte
-3. Si algo falla, intenta una alternativa razonable
-4. Al terminar, extrae los datos más importantes del resultado
-5. TERMINA cuando hayas completado todos los pasos o no puedas avanzar más
+REGLAS DE DECISIÓN — léelas antes de actuar:
+1. Ejecuta cada paso en orden. Si un elemento no está visible, haz scroll una sola vez y reintenta.
+2. Si un paso falla dos veces seguidas → márcalo como error, CONTINÚA con el siguiente paso. No repitas el mismo intento más de 2 veces.
+3. Si llevas 3 pasos consecutivos en error → detente, reporta el bloqueo y termina.
+4. Si la página no carga en 15 s o aparece un captcha/login inesperado → termina inmediatamente con estado "bloqueado".
+5. Cuando hayas ejecutado todos los pasos (o tomado la decisión de detenerte) → cierra el proceso y NO hagas nada más.
+6. NUNCA entres en un bucle repitiendo la misma acción fallida esperando un resultado diferente.
 
-Al finalizar resume en JSON qué hiciste y qué datos extrajiste."""
+Al finalizar (éxito o fallo parcial) responde SOLO este JSON sin texto adicional:
+{{
+  "estado_final": "completado|parcial|bloqueado",
+  "pasos_ok": <número>,
+  "pasos_error": <número>,
+  "motivo_parada": "descripción breve si no se completó",
+  "datos_extraidos": {{}}
+}}"""
 
     print(f"\n🤖 browser_use ejecutando: {objetivo}")
     print(f"   Sistemas: {origen} → {destino}\n")
 
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    timeout_seg = int(os.getenv("AGENT_TIMEOUT_SEG", "600"))  # 10 min por defecto
     estado = "error"
     resultado_texto = ""
     try:
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            resultado_texto = await loop.run_in_executor(
-                pool, _run_browser_use_sync, task, api_key
-            )
+            future = loop.run_in_executor(pool, _run_browser_use_sync, task, api_key)
+            resultado_texto = await asyncio.wait_for(future, timeout=timeout_seg)
         print(f"\n✅ browser_use completó el proceso")
         print(f"   {resultado_texto[:200]}...")
         estado = "ok"
+    except asyncio.TimeoutError:
+        resultado_texto = f"Timeout: el agente superó {timeout_seg}s sin terminar"
+        print(f"\n⏱️  Timeout — agente detenido tras {timeout_seg}s")
+        estado = "timeout"
     except Exception as e:
         resultado_texto = f"Error: {e}"
         print(f"\n❌ Error en browser_use: {e}")
@@ -126,6 +139,7 @@ Al finalizar resume en JSON qué hiciste y qué datos extrajiste."""
         return [{"paso": 1, "accion": "browser_use", "estado": estado,
                  "intencion": objetivo, "datos_extraidos": datos_extraidos}]
 
+    estado_paso_ok = "ok" if estado == "ok" else estado  # propaga timeout/error
     resultados = []
     for i, p in enumerate(pasos):
         es_ultimo = (i == len(pasos) - 1)
@@ -133,7 +147,7 @@ Al finalizar resume en JSON qué hiciste y qué datos extrajiste."""
             "paso":            p["numero"],
             "accion":          p["accion"],
             "intencion":       p["intencion"],
-            "estado":          estado if es_ultimo else ("ok" if estado != "error" else "error"),
+            "estado":          estado if es_ultimo else ("ok" if estado == "ok" else estado_paso_ok),
             "datos_extraidos": datos_extraidos if es_ultimo else None,
         })
     return resultados
