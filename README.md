@@ -2,13 +2,13 @@
 
 **Agente de IA que automatiza la captura de órdenes de compra entre portales de clientes y el sistema interno de Arca Continental.**
 
-Muéstrale el proceso una sola vez. Aprende el mapeo de campos sin reglas fijas. A partir de ahí lo ejecuta solo — abre el navegador, navega el portal, registra la orden y lo cierra.
+Muéstrale el proceso una sola vez. Aprende el mapeo de campos sin reglas fijas. A partir de ahí lo ejecuta solo abre el navegador, navega el portal, registra la orden y lo cierra.
 
 &nbsp;
 
 ## El problema que resuelve
 
-Los equipos de Arca Continental capturan manualmente pedidos desde portales de clientes como Walmart, Soriana o OXXO, copiando campo por campo al sistema interno. Es repetitivo, lento y propenso a errores.
+Los equipos capturan manualmente pedidos desde diversos portales copiando campo por campo al sistema interno. Es repetitivo, lento y propenso a errores.
 
 ArcaVision elimina ese trabajo manual por completo.
 
@@ -62,21 +62,6 @@ Abre `http://localhost:8000` — todo el flujo ocurre ahí.
 
 &nbsp;
 
-## Variables de entorno
-
-```bash
-ANTHROPIC_API_KEY=          # Claude Opus
-GROQ_API_KEY=               # Transcripción Whisper (fallback a Claude si falla)
-EMAIL_REMITENTE=            # Gmail para envío de tickets
-EMAIL_PASSWORD=             # Contraseña de app de Gmail
-ARCAVISION_ENC_KEY=         # Cifrado de datos financieros (se genera automáticamente si falta)
-GOOGLE_CREDENTIALS_PATH=    # Opcional — para registro en Google Sheets
-GOOGLE_SHEET_ID=            # Opcional
-SOLANA_PRIVATE_KEY=         # Opcional — audit trail on-chain
-```
-
-&nbsp;
-
 ## Reportes generados
 
 Cada ejecución produce automáticamente:
@@ -108,25 +93,63 @@ Para inspeccionar: extensión **SQLite Viewer** en VS Code. Para migrar a SQL Se
 
 ## Estructura del proyecto
 
-```
 ArcaVision/
-├── backend/api.py               FastAPI — conecta frontend con el agente
+├── main.py                          Entrypoint principal
+├── requirements.txt
+├── .gitignore
+├── arcavision.db                    SQLite (sesiones, planes, pedidos)
+│
+├── backend/
+│   └── api.py                       FastAPI — conecta frontend con el agente
+│
 ├── browser_agent/
-│   ├── agent.py                 Agente browser_use con auto-cierre
-│   └── grabador.py              Captura de pantalla, audio y eventos
+│   ├── agent.py                     Agente browser_use con auto-cierre
+│   └── grabador.py                  Captura de pantalla, audio y eventos
+│
+├── cerebro/
+│   └── procesar.py                  Versión anterior del cerebro (legacy)
+│
 ├── core/
-│   ├── procesar.py              Cerebro: Fase A (análisis) + Fase B (completar plan)
-│   └── workflow_generator.py    Transcripción y Bayesian confidence scores
-├── database/db.py               SQLite — sesiones, planes, pedidos, errores
-├── frontend_web/index.html      UI corporativa Arca Continental
+│   ├── procesar.py                  Cerebro: Fase A (análisis) + Fase B (completar plan)
+│   └── workflow_generator.py        Transcripción y Bayesian confidence scores
+│
+├── database/
+│   └── db.py                        SQLite — sesiones, planes, pedidos, errores (cifrado)
+│
+├── frontend_web/
+│   └── index.html                   UI corporativa Arca Continental (SPA con Plotly)
+│
 ├── frontend/
-│   ├── app.py                   Streamlit (modo alternativo)
-│   └── monte_carlo.py           Simulación Monte Carlo con IC 95%
+│   ├── app.py                       Streamlit (modo alternativo)
+│   └── monte_carlo.py               Simulación Monte Carlo con IC 95%
+│
+├── grabador/
+│   ├── __init__.py
+│   └── grabador.py                  Módulo grabador (importable)
+│
 ├── postprocessing/
-│   ├── reporte.py               Excel, PDF, tickets y Google Sheets
-│   └── pipeline.py              Post-procesamiento auxiliar
-└── shared/schemas.py            Contrato JSON entre módulos
-```
+│   ├── reporte.py                   Excel, PDF, tickets, email
+│   ├── pipeline.py                  Post-procesamiento + MongoDB
+│   ├── crypto.py                    Cifrado Fernet AES-128 en reposo
+│   └── solana_audit.py              Audit trail en Solana Devnet
+│
+├── shared/
+│   └── schemas.py                   Contrato JSON entre módulos
+│
+├── scripts/
+│   └── test_correo.py               Prueba email + cifrado sin correr el agente
+│
+├── data/
+│   └── mock/
+│       ├── mock_data.json
+│       └── plan_ejemplo.json
+│
+├── diagrams/
+│   ├── arca_ai_agent_workflow.png
+│   └── bayesian_confidence_scoring.png
+│
+├── reportes/                        Generados en runtime (gitignoreados)
+└── sesiones/                        Grabaciones y planes (gitignoreados)
 
 &nbsp;
 
