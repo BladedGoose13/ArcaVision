@@ -282,7 +282,6 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
     print(f"  Motor   : {motor}")
     print(f"  Resultado: {ok}/{len(resultados)} pasos exitosos")
 
-    # Post-procesamiento
     datos_extraidos = {
         f"paso_{r.get('paso', i)}": r["datos_extraidos"]
         for i, r in enumerate(resultados) if r.get("datos_extraidos")
@@ -301,29 +300,33 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
     except Exception as e:
         print(f"  ⚠️  SQLite no disponible: {e}")
 
-    # Generar Excel + ticket HTML
+    # Generar los tres reportes: Excel compras, PDF IA, Excel errores
     try:
-        from postprocessing.reporte import generar_excel, generar_ticket_html, guardar_ticket
+        from postprocessing.reporte import generar_todos_los_reportes, generar_ticket_html, guardar_ticket
         datos_reporte = {
-            "objetivo":  plan.get("objetivo", "Proceso"),
-            "origen":    plan.get("plataforma_origen", ""),
-            "destino":   plan.get("plataforma_destino", ""),
-            "resultados": resultados,
+            "objetivo":        plan.get("objetivo", "Proceso"),
+            "origen":          plan.get("plataforma_origen", ""),
+            "destino":         plan.get("plataforma_destino", ""),
+            "resultados":      resultados,
             "datos_extraidos": datos_extraidos,
-            "fecha":     datetime.now().isoformat(),
+            "fecha":           datetime.now().isoformat(),
+            "motor":           motor,
+            "iteraciones":     len(resultados),
+            "plan":            plan,
         }
-        excel_path  = generar_excel(datos_reporte)
+        rutas = generar_todos_los_reportes(datos_reporte)
         ticket_html = generar_ticket_html(datos_reporte)
-        ticket_path = guardar_ticket(ticket_html)
-        print(f"  📊 Excel:  {excel_path}")
-        print(f"  🎫 Ticket: {ticket_path}")
+        guardar_ticket(ticket_html)
+        print(f"  📦 Excel compras : {rutas.get('excel_compras')}")
+        print(f"  📄 PDF reporte IA: {rutas.get('pdf_reporte')}")
+        print(f"  📊 Excel errores : {rutas.get('excel_errores')}")
     except Exception as e:
-        excel_path  = None
-        ticket_path = None
+        rutas = {}
         print(f"  ⚠️  Reportes no generados: {e}")
 
     # Email
-    _enviar_email(email_reporte, plan, resultados, datos_extraidos, excel_path)
+    _enviar_email(email_reporte, plan, resultados, datos_extraidos,
+                  rutas.get("excel_compras"))
 
     return resultados
 
