@@ -19,7 +19,9 @@ from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
-from database.db import guardar_plan, guardar_sesion, cargar_plan_activo, obtener_historial, obtener_estadisticas
+from database.db import (guardar_plan, guardar_sesion, cargar_plan_activo,
+                          obtener_historial, obtener_estadisticas,
+                          guardar_pedido, obtener_pedidos)
 
 app = FastAPI(title="ArcFast API")
 
@@ -240,10 +242,24 @@ def health():
     return {"status": "ok", "sesion_activa": session["grabador"] is not None}
 
 
-# ─── Historial y estadísticas ─────────────────────────────────────────────────
+# ─── Historial, estadísticas y pedidos ───────────────────────────────────────
 @app.get("/historial")
 def historial(limit: int = 20):
     return obtener_historial(limit)
+
+
+@app.get("/pedidos")
+def pedidos(limit: int = 50):
+    return obtener_pedidos(limit)
+
+
+@app.get("/ticket")
+def ticket_html():
+    from fastapi.responses import HTMLResponse
+    ticket_path = "reportes/ticket.html"
+    if not __import__("pathlib").Path(ticket_path).exists():
+        return HTMLResponse("<p>No hay ticket generado aún.</p>")
+    return HTMLResponse(open(ticket_path, encoding="utf-8").read())
 
 
 @app.get("/estadisticas")

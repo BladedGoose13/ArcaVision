@@ -13,6 +13,11 @@ Además mantiene el ticket HTML y el historial acumulativo existentes.
 import json
 import re
 import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -975,3 +980,360 @@ def agregar_al_historial_excel(datos: dict):
                datos.get("motor","playwright")])
     wb.save(HISTORIAL_PATH)
     return HISTORIAL_PATH
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SISTEMA DE TICKETS — extracción, email y persistencia
+# (integrado desde ArcFast-Izhar con mejoras para el contexto FastAPI)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def extraer_datos_pedido(resultado_texto: str, datos_reporte: dict) -> dict:
+    """
+    Extrae productos, totales y datos de envío del texto libre del agente.
+    Usa regex del ZIP original + fallback a datos estructurados del agente.
+    """
+    # ── 1. Productos ya estructurados por el agente (camino feliz) ────────────
+    productos = datos_reporte.get("productos") or []
+
+    # ── 2. Fallback regex sobre el texto del agente ───────────────────────────
+    if not productos and resultado_texto:
+        nombres_vistos: set = set()
+        patron = r"\d+\.\s+(.+?)\s+-\s+\$([0-9,]+\.?[0-9]*)"
+        for m in re.finditer(patron, resultado_texto):
+            nombre = m.group(1).strip()
+            precio = float(m.group(2).replace(",", ""))
+            if nombre not in nombres_vistos:
+                nombres_vistos.add(nombre)
+                productos.append({"nombre": nombre, "precio_unitario": precio,
+                                   "cantidad": 1, "sku": "", "estado": "ok"})
+
+    # ── 3. Totales con regex ──────────────────────────────────────────────────
+    def _monto(patron_re: str) -> float:
+        m = re.search(patron_re, resultado_texto or "")
+        return float(m.group(1).replace(",", "")) if m else 0.0
+
+    subtotal  = _monto(r"[Ss]ubtotal.*?\$([0-9,]+\.?[0-9]*)")
+    impuestos = _monto(r"[Ii]mpuesto.*?\$([0-9,]+\.?[0-9]*)")
+    total     = _monto(r"TOTAL.*?\$([0-9,]+\.?[0-9]*)")
+    if total == 0 and productos:
+        total = sum(p.get("precio_unitario", 0) * p.get("cantidad", 1) for p in productos)
+
+    # ── 4. Datos de envío ─────────────────────────────────────────────────────
+    cliente_m = re.search(r"[Dd]irecci[oó]n:\s+(.+?),", resultado_texto or "")
+    zip_m     = re.search(r"[Cc][óo]digo\s+[Pp]ostal\s+(\d+)", resultado_texto or "")
+    envio_m   = re.search(r"[Mm][eé]todo:\s+(.+?)(?:\n|$)", resultado_texto or "")
+
+    return {
+        "productos":  productos,
+        "subtotal":   subtotal,
+        "impuestos":  impuestos,
+        "total":      total,
+        "cliente":    (cliente_m.group(1).strip() if cliente_m
+                       else datos_reporte.get("email", "Cliente")),
+        "zip":        zip_m.group(1) if zip_m else "",
+        "envio":      (envio_m.group(1).strip() if envio_m else "Envío estándar"),
+        "fecha":      datos_reporte.get("fecha", datetime.now().isoformat()),
+        "objetivo":   datos_reporte.get("objetivo", "Pedido"),
+        "comercio":   datos_reporte.get("origen", ""),
+    }
+
+
+def generar_ticket_html_premium(datos_pedido: dict, datos_reporte: dict) -> str:
+    """
+    Ticket HTML de alta calidad — diseño Arca Continental.
+    Muestra productos reales, totales, pasos del proceso y estado final.
+    """
+    fecha    = datetime.fromisoformat(
+        datos_pedido.get("fecha", datetime.now().isoformat())
+    ).strftime("%d/%m/%Y %H:%M")
+    cliente  = datos_pedido.get("cliente", "Cliente")
+    objetivo = datos_pedido.get("objetivo", "Pedido automatizado")
+    envio    = datos_pedido.get("envio", "—")
+    zip_code = datos_pedido.get("zip", "")
+
+    resultados = datos_reporte.get("resultados", [])
+    ok_count   = sum(1 for r in resultados if r.get("estado") == "ok")
+    total_pasos = len(resultados)
+
+    # Filas de productos
+    productos = datos_pedido.get("productos", [])
+    filas_prod = ""
+    if productos:
+        for p in productos:
+            precio  = p.get("precio_unitario", p.get("precio", 0))
+            cant    = p.get("cantidad", 1)
+            subtot  = precio * cant
+            filas_prod += f"""
+            <tr>
+              <td style="padding:10px 12px;border-bottom:1px solid #F2ECE8">{p.get('nombre','—')}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #F2ECE8;text-align:center">{cant}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #F2ECE8;text-align:right">${precio:,.2f}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #F2ECE8;text-align:right;font-weight:600">${subtot:,.2f}</td>
+            </tr>"""
+    else:
+        filas_prod = "<tr><td colspan='4' style='padding:14px;text-align:center;color:#999'>Sin productos detallados</td></tr>"
+
+    # Filas de pasos (resumen compacto)
+    filas_pasos = ""
+    for r in resultados[:10]:
+        estado = r.get("estado", "error")
+        icono  = "✅" if estado == "ok" else "❌" if estado == "error" else "⚠️"
+        color  = "#E6F4EC" if estado == "ok" else "#FDECEA" if estado == "error" else "#FEF3E2"
+        filas_pasos += f"""
+        <tr style="background:{color}">
+          <td style="padding:6px 10px;font-size:12px;color:#666">{r.get('paso','')}</td>
+          <td style="padding:6px 10px;font-size:12px">{r.get('intencion',r.get('accion',''))[:55]}</td>
+          <td style="padding:6px 10px;font-size:12px;text-align:center">{icono}</td>
+        </tr>"""
+
+    estado_color = "#1A7A45" if ok_count == total_pasos else "#C8102E"
+    estado_texto = "COMPLETADO" if ok_count == total_pasos else f"{ok_count}/{total_pasos} pasos"
+
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>ArcFast — Ticket de pedido</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;background:#F5F0EB;font-family:'Segoe UI',Arial,sans-serif;padding:20px">
+<div style="max-width:620px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;
+            box-shadow:0 4px 24px rgba(28,26,24,.14)">
+
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg,#C8102E 0%,#a00e24 100%);padding:32px;text-align:center;position:relative">
+    <div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.6);text-transform:uppercase;margin-bottom:6px">Arca Continental</div>
+    <h1 style="color:white;margin:0;font-size:26px;letter-spacing:2px;font-weight:800">⚡ ARCFAST</h1>
+    <p style="color:rgba(255,255,255,.7);margin:8px 0 0;font-size:13px">Confirmación de pedido automatizado</p>
+    <div style="margin-top:18px;display:inline-block;padding:6px 20px;border-radius:20px;
+                background:rgba(255,255,255,.15);color:white;font-size:12px;letter-spacing:1px">
+      {fecha}
+    </div>
+  </div>
+
+  <!-- Estado banner -->
+  <div style="background:{estado_color};padding:12px 28px;display:flex;align-items:center;justify-content:space-between">
+    <span style="color:white;font-size:13px;font-weight:600">{objetivo}</span>
+    <span style="color:white;font-size:13px;font-weight:700;letter-spacing:1px">{estado_texto}</span>
+  </div>
+
+  <div style="padding:28px">
+
+    <!-- Info cliente y envío -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
+      <div style="background:#FBF8F5;border-radius:8px;padding:16px;border-left:3px solid #C8102E">
+        <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Cliente</div>
+        <div style="font-weight:700;color:#1C1A18">{cliente}</div>
+      </div>
+      <div style="background:#FBF8F5;border-radius:8px;padding:16px;border-left:3px solid #C9A35B">
+        <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Envío · CP {zip_code}</div>
+        <div style="font-weight:700;color:#1C1A18">{envio}</div>
+      </div>
+    </div>
+
+    <!-- Tabla productos -->
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+                  color:#999;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #F2ECE8">
+        Productos del pedido
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="background:#FBF8F5">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888">Producto</th>
+            <th style="padding:10px 12px;text-align:center;font-size:11px;color:#888">Cant.</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888">Precio</th>
+            <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888">Total</th>
+          </tr>
+        </thead>
+        <tbody>{filas_prod}</tbody>
+      </table>
+      <!-- Totales -->
+      <div style="margin-top:12px;border-top:2px solid #F2ECE8;padding-top:12px">
+        <div style="display:flex;justify-content:space-between;padding:4px 12px;font-size:13px;color:#666">
+          <span>Subtotal</span><span>${datos_pedido.get('subtotal',0):,.2f}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:4px 12px;font-size:13px;color:#666">
+          <span>Impuestos</span><span>${datos_pedido.get('impuestos',0):,.2f}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:10px 12px;
+                    font-size:17px;font-weight:800;color:#C8102E;
+                    border-top:2px solid #F2ECE8;margin-top:6px">
+          <span>TOTAL</span><span>${datos_pedido.get('total',0):,.2f}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resumen de pasos (si hay) -->
+    {"" if not filas_pasos else f'''
+    <div style="margin-bottom:24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+                  color:#999;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #F2ECE8">
+        Ejecución del agente
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#FBF8F5">
+          <th style="padding:6px 10px;text-align:left;font-size:10px;color:#999">#</th>
+          <th style="padding:6px 10px;text-align:left;font-size:10px;color:#999">Paso</th>
+          <th style="padding:6px 10px;text-align:center;font-size:10px;color:#999">Estado</th>
+        </tr></thead>
+        <tbody>{filas_pasos}</tbody>
+      </table>
+    </div>'''}
+
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#1C1A18;padding:16px 28px;display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:1px">
+      ArcFast · Arca Continental
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.3)">Hack4Her 2026</div>
+  </div>
+</div>
+</body></html>"""
+
+
+def enviar_ticket(datos_pedido: dict, datos_reporte: dict,
+                  email_cliente: str, excel_path: str = None):
+    """
+    Envía el ticket premium por email con el Excel adjunto.
+    Siempre guarda el HTML localmente aunque el email falle.
+    """
+    remitente = os.getenv("EMAIL_REMITENTE", "")
+    password  = os.getenv("EMAIL_PASSWORD", "")
+
+    html      = generar_ticket_html_premium(datos_pedido, datos_reporte)
+    ticket_path = "reportes/ticket.html"
+    Path("reportes").mkdir(exist_ok=True)
+    with open(ticket_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"  🎫 Ticket HTML: {ticket_path}")
+
+    if not remitente or not password or not email_cliente:
+        print("  ℹ️  Email no configurado — ticket guardado localmente")
+        return ticket_path
+
+    fecha  = datetime.fromisoformat(
+        datos_pedido.get("fecha", datetime.now().isoformat())
+    ).strftime("%d/%m/%Y %H:%M")
+    total  = datos_pedido.get("total", 0)
+    n_prod = len(datos_pedido.get("productos", []))
+
+    msg = MIMEMultipart("mixed")
+    msg["From"]    = remitente
+    msg["To"]      = email_cliente
+    msg["Subject"] = f"✅ Pedido Arca Continental — {fecha} — {n_prod} producto(s) — ${total:,.2f}"
+    msg.attach(MIMEText(html, "html"))
+
+    if excel_path and Path(excel_path).exists():
+        with open(excel_path, "rb") as f:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition",
+                            f"attachment; filename=pedido_arca_{fecha[:10]}.xlsx")
+            msg.attach(part)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remitente, password)
+            server.sendmail(remitente, email_cliente, msg.as_string())
+        print(f"  📧 Ticket enviado a {email_cliente}")
+    except Exception as e:
+        print(f"  ⚠️  Email no enviado: {e}")
+
+    return ticket_path
+
+
+def agregar_a_google_sheets(datos_pedido: dict):
+    """
+    Añade la fila del pedido a Google Sheets (opcional — requiere credenciales).
+    Falla silenciosamente si no hay google_credentials.json.
+    """
+    creds_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "google_credentials.json")
+    sheet_id   = os.getenv("GOOGLE_SHEET_ID", "")
+    if not Path(creds_path).exists() or not sheet_id:
+        return False
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+        scopes  = ["https://www.googleapis.com/auth/spreadsheets",
+                   "https://www.googleapis.com/auth/drive"]
+        creds   = Credentials.from_service_account_file(creds_path, scopes=scopes)
+        client  = gspread.authorize(creds)
+        sheet   = client.open_by_key(sheet_id).sheet1
+        if sheet.row_count == 0 or sheet.cell(1, 1).value != "Fecha":
+            sheet.append_row(["Fecha","Comercio","Cliente","CP","Productos",
+                               "Subtotal","Impuestos","Total","Envío"])
+        fecha         = datetime.fromisoformat(
+            datos_pedido.get("fecha", datetime.now().isoformat())
+        ).strftime("%d/%m/%Y %H:%M")
+        productos_txt = ", ".join([
+            f"{p.get('nombre','')} (${p.get('precio_unitario',p.get('precio',0)):.2f})"
+            for p in datos_pedido.get("productos", [])
+        ])
+        sheet.append_row([
+            fecha,
+            datos_pedido.get("comercio", datos_pedido.get("objetivo", "")),
+            datos_pedido.get("cliente", ""),
+            datos_pedido.get("zip", ""),
+            productos_txt,
+            datos_pedido.get("subtotal", 0),
+            datos_pedido.get("impuestos", 0),
+            datos_pedido.get("total", 0),
+            datos_pedido.get("envio", ""),
+        ])
+        print("  📊 Google Sheets actualizado")
+        return True
+    except Exception as e:
+        print(f"  ℹ️  Google Sheets no disponible: {e}")
+        return False
+
+
+def procesar_ticket_completo(datos_reporte: dict,
+                             email_cliente: str,
+                             excel_path: str = None,
+                             sesion_id: int = None) -> dict:
+    """
+    Pipeline completo de ticket post-ejecución:
+      1. Extrae datos de pedido del texto + estructura del agente
+      2. Guarda en SQLite tabla pedidos
+      3. Actualiza historial Excel acumulativo
+      4. Sube a Google Sheets (si está configurado)
+      5. Genera y envía ticket HTML por email con Excel adjunto
+    """
+    # ── Texto libre del agente (para extracción regex) ────────────────────────
+    resultado_texto = ""
+    for r in datos_reporte.get("resultados", []):
+        ext = r.get("datos_extraidos")
+        if isinstance(ext, dict):
+            resultado_texto += str(ext.get("resumen", ""))
+        elif ext:
+            resultado_texto += str(ext)
+
+    datos_pedido = extraer_datos_pedido(resultado_texto, datos_reporte)
+
+    # ── SQLite ────────────────────────────────────────────────────────────────
+    try:
+        from database.db import guardar_pedido
+        pedido_id = guardar_pedido(datos_pedido, sesion_id=sesion_id)
+        print(f"  💾 Pedido #{pedido_id} guardado en SQLite")
+    except Exception as e:
+        print(f"  ⚠️  SQLite pedido: {e}")
+        pedido_id = None
+
+    # ── Historial Excel acumulativo ───────────────────────────────────────────
+    try:
+        agregar_al_historial_excel(datos_reporte)
+    except Exception as e:
+        print(f"  ⚠️  Historial Excel: {e}")
+
+    # ── Google Sheets ─────────────────────────────────────────────────────────
+    agregar_a_google_sheets(datos_pedido)
+
+    # ── Ticket email ──────────────────────────────────────────────────────────
+    ticket_path = enviar_ticket(datos_pedido, datos_reporte, email_cliente, excel_path)
+
+    datos_pedido["ticket_enviado"] = bool(
+        os.getenv("EMAIL_REMITENTE") and os.getenv("EMAIL_PASSWORD") and email_cliente
+    )
+    return {"datos_pedido": datos_pedido, "ticket_path": ticket_path, "pedido_id": pedido_id}

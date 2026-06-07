@@ -102,6 +102,22 @@ def init_db():
         fecha       TEXT NOT NULL,
         FOREIGN KEY (sesion_id) REFERENCES sesiones(id)
     );
+
+    CREATE TABLE IF NOT EXISTS pedidos (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        sesion_id       INTEGER,
+        fecha           TEXT NOT NULL,
+        comercio        TEXT,
+        cliente         TEXT,
+        zip             TEXT,
+        envio           TEXT,
+        productos_json  TEXT,
+        subtotal        REAL DEFAULT 0,
+        impuestos       REAL DEFAULT 0,
+        total           REAL DEFAULT 0,
+        ticket_enviado  INTEGER DEFAULT 0,
+        FOREIGN KEY (sesion_id) REFERENCES sesiones(id)
+    );
     """)
     conn.commit()
 
@@ -288,6 +304,55 @@ def obtener_estadisticas() -> dict:
         "errores_por_accion": errores_por_accion,
         "por_dia":           por_dia,
     }
+
+
+def guardar_pedido(datos_pedido: dict, sesion_id: int = None) -> int:
+    """
+    Persiste un pedido extraído del agente en la tabla pedidos.
+    Retorna el id insertado.
+    """
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute("""
+        INSERT INTO pedidos
+            (sesion_id, fecha, comercio, cliente, zip, envio,
+             productos_json, subtotal, impuestos, total, ticket_enviado)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        sesion_id,
+        datos_pedido.get("fecha", datetime.now().isoformat()),
+        datos_pedido.get("comercio") or datos_pedido.get("objetivo", ""),
+        datos_pedido.get("cliente", ""),
+        datos_pedido.get("zip", ""),
+        datos_pedido.get("envio", ""),
+        json.dumps(datos_pedido.get("productos", []), ensure_ascii=False),
+        float(datos_pedido.get("subtotal", 0)),
+        float(datos_pedido.get("impuestos", 0)),
+        float(datos_pedido.get("total", 0)),
+        1 if datos_pedido.get("ticket_enviado") else 0,
+    ))
+    conn.commit()
+    pedido_id = cur.lastrowid
+    conn.close()
+    return pedido_id
+
+
+def obtener_pedidos(limit: int = 50) -> list:
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute("""
+        SELECT id, fecha, comercio, cliente, zip, envio,
+               productos_json, subtotal, impuestos, total, ticket_enviado
+        FROM pedidos ORDER BY id DESC LIMIT ?
+    """, (limit,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    for r in rows:
+        try:
+            r["productos"] = json.loads(r.get("productos_json") or "[]")
+        except Exception:
+            r["productos"] = []
+    return rows
 
 
 init_db()

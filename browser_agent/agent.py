@@ -10,11 +10,6 @@ import asyncio
 import concurrent.futures
 import json
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -295,77 +290,42 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
 
     # Generar los tres reportes: Excel compras, PDF IA, Excel errores
     rutas = {}
+    datos_reporte = {
+        "objetivo":        plan.get("objetivo", "Proceso"),
+        "origen":          plan.get("plataforma_origen", ""),
+        "destino":         plan.get("plataforma_destino", ""),
+        "resultados":      resultados,
+        "datos_extraidos": datos_extraidos,
+        "productos":       productos,
+        "email":           email_reporte,
+        "fecha":           datetime.now().isoformat(),
+        "motor":           motor,
+        "iteraciones":     len(resultados),
+        "plan":            plan,
+    }
     try:
-        from postprocessing.reporte import generar_todos_los_reportes, generar_ticket_html, guardar_ticket
-        datos_reporte = {
-            "objetivo":        plan.get("objetivo", "Proceso"),
-            "origen":          plan.get("plataforma_origen", ""),
-            "destino":         plan.get("plataforma_destino", ""),
-            "resultados":      resultados,
-            "datos_extraidos": datos_extraidos,
-            "productos":       productos,
-            "fecha":           datetime.now().isoformat(),
-            "motor":           motor,
-            "iteraciones":     len(resultados),
-            "plan":            plan,
-        }
+        from postprocessing.reporte import generar_todos_los_reportes
         rutas = generar_todos_los_reportes(datos_reporte)
-        ticket_html = generar_ticket_html(datos_reporte)
-        guardar_ticket(ticket_html)
         print(f"  📦 Excel compras : {rutas.get('excel_compras')}")
         print(f"  📄 PDF reporte IA: {rutas.get('pdf_reporte')}")
         print(f"  📊 Excel errores : {rutas.get('excel_errores')}")
     except Exception as e:
         print(f"  ⚠️  Reportes no generados: {e}")
 
-    # Email
-    _enviar_email(email_reporte, plan, resultados, datos_extraidos,
-                  rutas.get("excel_compras"))
+    # Pipeline completo de ticket: extrae pedido, SQLite, historial, Sheets, email
+    try:
+        from postprocessing.reporte import procesar_ticket_completo
+        ticket_info = procesar_ticket_completo(
+            datos_reporte=datos_reporte,
+            email_cliente=email_reporte,
+            excel_path=rutas.get("excel_compras"),
+            sesion_id=None,
+        )
+        print(f"  🎫 Ticket: {ticket_info.get('ticket_path')}")
+    except Exception as e:
+        print(f"  ⚠️  Ticket no generado: {e}")
 
     return resultados
 
 
-def _enviar_email(destinatario: str, plan: dict, resultados: list,
-                  datos: dict, excel_path: str = None):
-    remitente = os.getenv("EMAIL_REMITENTE", "")
-    password  = os.getenv("EMAIL_PASSWORD", "")
-    if not remitente or not password or not destinatario:
-        print(f"  📄 Email desactivado — agrega EMAIL_REMITENTE y EMAIL_PASSWORD al .env")
-        return
-
-    ok    = sum(1 for r in resultados if r["estado"] == "ok")
-    total = len(resultados)
-    fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
-
-    cuerpo = f"""
-ArcFast — Arca Continental
-Reporte de ejecución automática
-
-Proceso : {plan.get('objetivo', '')}
-Fecha   : {fecha}
-Resultado: {ok}/{total} pasos exitosos
-
-Datos extraídos:
-{json.dumps(datos, indent=2, ensure_ascii=False)[:1500]}
-"""
-    msg = MIMEMultipart()
-    msg["From"]    = remitente
-    msg["To"]      = destinatario
-    msg["Subject"] = f"ArcFast — Reporte {fecha} — {ok}/{total} pasos"
-    msg.attach(MIMEText(cuerpo, "plain"))
-
-    if excel_path and Path(excel_path).exists():
-        with open(excel_path, "rb") as f:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(f.read())
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", "attachment; filename=reporte_arcfast.xlsx")
-            msg.attach(part)
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(remitente, password)
-            server.sendmail(remitente, destinatario, msg.as_string())
-        print(f"  📧 Reporte enviado a {destinatario}")
-    except Exception as e:
-        print(f"  ⚠️  Email no enviado: {e}")
+# _enviar_email reemplazado por procesar_ticket_completo en postprocessing/reporte.py
