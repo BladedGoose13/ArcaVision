@@ -767,11 +767,18 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 
         <!-- POR CLIENTE -->
         <div class="arca-page" id="arca-clientes">
-          <div><div class="arca-title">Actividad por cliente</div><div class="arca-sub">Desglose de uso y rendimiento por empresa</div></div>
-          <div id="chart-clientes-bar" style="height:280px"></div>
+          <div style="margin-bottom:4px"><div class="arca-title">Actividad por cliente</div><div class="arca-sub">Desglose de uso y rendimiento por empresa · últimos 6 meses</div></div>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:20px">
+            <div class="card"><div class="card-title">Sesiones y órdenes por empresa</div><div id="chart-clientes-bar" style="height:300px"></div></div>
+            <div class="card"><div class="card-title">Tasa de éxito — Top 6</div><div id="chart-clientes-tasa" style="height:300px"></div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+            <div class="card"><div class="card-title">Evolución mensual de sesiones</div><div id="chart-clientes-evol" style="height:260px"></div></div>
+            <div class="card"><div class="card-title">Mapa de calor · volumen por empresa × mes</div><div id="chart-clientes-heat" style="height:260px"></div></div>
+          </div>
           <div class="card"><div class="card-title">Detalle por cliente</div>
             <table class="historial-table" id="clientes-table">
-              <thead><tr><th>Empresa</th><th>Sesiones</th><th>Tasa de éxito</th><th>Errores totales</th></tr></thead>
+              <thead><tr><th>Empresa</th><th>Sesiones</th><th>Órdenes</th><th>Tasa éxito</th><th>Tiempo prom.</th><th>Errores</th><th>Tendencia</th></tr></thead>
               <tbody id="clientes-tbody"></tbody>
             </table>
           </div>
@@ -779,19 +786,39 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 
         <!-- ERRORES IA -->
         <div class="arca-page" id="arca-errores">
-          <div><div class="arca-title">Errores del agente</div><div class="arca-sub">Análisis de fallos para el equipo de ingeniería</div></div>
-          <div id="chart-errores-accion" style="height:300px"></div>
+          <div style="margin-bottom:4px"><div class="arca-title">Errores del agente</div><div class="arca-sub">Análisis de fallos para el equipo de ingeniería · últimos 90 días</div></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-bottom:20px">
+            <div class="card"><div class="card-title">Diagrama de Pareto · causas de error</div><div id="chart-errores-pareto" style="height:300px"></div></div>
+            <div class="card"><div class="card-title">Errores por categoría</div><div id="chart-errores-donut" style="height:300px"></div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+            <div class="card"><div class="card-title">Mapa de calor · hora × día de la semana</div><div id="chart-errores-heat" style="height:260px"></div></div>
+            <div class="card"><div class="card-title">Tendencia semanal por categoría</div><div id="chart-errores-trend" style="height:260px"></div></div>
+          </div>
           <div class="card"><div class="card-title">Tipos de error más frecuentes</div>
-            <table class="historial-table"><thead><tr><th>Acción</th><th>Total errores</th></tr></thead>
+            <table class="historial-table"><thead><tr><th>Acción</th><th>Categoría</th><th>Total</th><th>% del total</th><th>Última ocurrencia</th></tr></thead>
             <tbody id="errores-tbody"></tbody></table>
           </div>
         </div>
 
         <!-- HISTORIAL -->
         <div class="arca-page" id="arca-historial">
-          <div><div class="arca-title">Historial de sesiones</div><div class="arca-sub">Todas las ejecuciones del agente</div></div>
-          <div class="card"><div class="card-title">Últimas 50 sesiones</div>
-            <table class="historial-table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Origen → Destino</th><th>Pasos</th><th>Éxito</th><th>Errores</th><th>Duración</th></tr></thead>
+          <div style="margin-bottom:8px"><div class="arca-title">Historial de sesiones</div><div class="arca-sub">Todas las ejecuciones del agente · 180 días</div></div>
+          <div class="metrics-row" id="hist-kpis" style="margin-bottom:20px"></div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px">
+            <div class="card"><div class="card-title">Línea de tiempo · sesiones y estado</div><div id="chart-hist-timeline" style="height:280px"></div></div>
+            <div class="card"><div class="card-title">Distribución de duración (segundos)</div><div id="chart-hist-dist" style="height:280px"></div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+            <div class="card"><div class="card-title">Box plot · duración por empresa</div><div id="chart-hist-box" style="height:260px"></div></div>
+            <div class="card"><div class="card-title">Mapa de actividad · hora × día</div><div id="chart-hist-heat" style="height:260px"></div></div>
+          </div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+              <div class="card-title" style="margin-bottom:0">Últimas 100 sesiones</div>
+              <input id="hist-search" type="text" placeholder="Buscar empresa…" class="form-input" style="width:200px;padding:6px 10px;font-size:13px" oninput="filtrarHistorial(this.value)">
+            </div>
+            <table class="historial-table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Origen → Destino</th><th>Pasos</th><th>Éxito</th><th>Errores</th><th>Duración</th><th>Estado</th></tr></thead>
             <tbody id="historial-tbody"></tbody></table>
           </div>
         </div>
@@ -1320,66 +1347,261 @@ function resetCliente() {
   goTo('captura');
 }
 
+// ══ DATOS SINTÉTICOS ══
+const EMPRESAS_SD = [
+  {id:'oxxo',  nombre:'OXXO',          segmento:'Conveniencia', color:'#C8102E'},
+  {id:'7e',    nombre:'7-Eleven',       segmento:'Conveniencia', color:'#e87612'},
+  {id:'wmt',   nombre:'Walmart',        segmento:'Supermercado', color:'#0071CE'},
+  {id:'sor',   nombre:'Soriana',        segmento:'Supermercado', color:'#8B2FC9'},
+  {id:'che',   nombre:'Chedraui',       segmento:'Supermercado', color:'#1A7A45'},
+  {id:'sams',  nombre:"Sam's Club",     segmento:'Mayorista',    color:'#B87014'},
+  {id:'cos',   nombre:'Costco',         segmento:'Mayorista',    color:'#005DAA'},
+  {id:'lco',   nombre:'La Comer',       segmento:'Premium',      color:'#6B3A2A'},
+  {id:'bod',   nombre:'Bodega Aurrerá', segmento:'Descuento',    color:'#2E86AB'},
+  {id:'cim',   nombre:'City Market',    segmento:'Premium',      color:'#A63D2F'},
+  {id:'fre',   nombre:'Fresko',         segmento:'Premium',      color:'#3D9970'},
+  {id:'sup',   nombre:'Superama',       segmento:'Premium',      color:'#7B2D8B'},
+];
+const MESES_SD = ['Ene','Feb','Mar','Abr','May','Jun'];
+const DIAS_SEM_SD = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const CATS_ERROR = ['Selector no encontrado','Timeout de página','Campo obligatorio vacío','Login fallido','Captcha bloqueante','Sesión expirada','Elemento no clicable','API externa inaccesible'];
+const CATS_SHORT  = ['Selector','Timeout','Campo vacío','Login','Captcha','Sesión exp.','No clicable','API ext.'];
+const CATS_GRUPO  = ['Navegación','Tiempo','Formularios','Autenticación','Autenticación','Autenticación','Navegación','Tiempo'];
+
+function _rngSD(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 0x100000000; };
+}
+
+function generarDatosSinteticos() {
+  const r = _rngSD(20240601);
+  const clientesData = EMPRESAS_SD.map((e, i) => {
+    const base  = [120,180,45,60,55,90,75,30,95,28,22,18][i];
+    const exito = [91, 87, 82,85,89,83,86,92,78,94,88,90][i];
+    const meses = MESES_SD.map((m, mi) => {
+      const ses = Math.round(base * (0.8 + r()*0.5) + mi*base*0.04);
+      const tas = Math.min(99, Math.max(50, exito + (r()-0.5)*12));
+      return {mes:m, sesiones:ses, tasa:tas, ordenes:Math.round(ses*(0.85+r()*0.15)), duracion:45+r()*60};
+    });
+    const totalSesiones = meses.reduce((a,m)=>a+m.sesiones,0);
+    const totalOrdenes  = meses.reduce((a,m)=>a+m.ordenes, 0);
+    const tasaGlobal    = meses.reduce((a,m)=>a+m.tasa,    0)/meses.length;
+    const duracionProm  = meses.reduce((a,m)=>a+m.duracion,0)/meses.length;
+    return {...e, meses, totalSesiones, totalOrdenes, tasaGlobal, errores:Math.round(totalSesiones*(1-tasaGlobal/100)), duracionProm};
+  });
+
+  const erroresAccion = CATS_ERROR.map((cat,i) => {
+    const total = Math.round([145,112,130,95,78,88,102,45][i] + r()*40);
+    return {cat, catShort:CATS_SHORT[i], grupo:CATS_GRUPO[i], total};
+  }).sort((a,b)=>b.total-a.total);
+
+  const errHeat = DIAS_SEM_SD.map(d =>
+    Array.from({length:24},(_,h)=>{
+      const pk=(h>=8&&h<=12)||(h>=14&&h<=18);
+      const we=d==='Sáb'||d==='Dom';
+      return Math.round(r()*(pk?18:5)*(we?0.4:1));
+    })
+  );
+
+  const semanas = Array.from({length:12},(_,i)=>{const d=new Date(2024,0,1+i*7);return d.toLocaleDateString('es-MX',{month:'short',day:'numeric'});});
+  const tendencia = CATS_ERROR.slice(0,4).map((cat,ci)=>({cat, catShort:CATS_SHORT[ci], vals:Array.from({length:12},(_,i)=>Math.round(5+r()*25+Math.sin(i/3+ci)*8))}));
+
+  const r2 = _rngSD(20240901);
+  const sesiones = Array.from({length:100},(_,i)=>{
+    const emp  = EMPRESAS_SD[Math.floor(r2()*EMPRESAS_SD.length)];
+    const dias = Math.floor(r2()*180);
+    const fecha= new Date(Date.now()-dias*86400000-r2()*86400000);
+    const pasos= 4+Math.floor(r2()*12);
+    const tasa = emp.meses[0].tasa/100;
+    const err  = r2()>tasa?Math.ceil(r2()*3):0;
+    return {fecha, empresa:emp.nombre, color:emp.color, pasos, exitosos:pasos-err, errores:err,
+      duracion:30+r2()*120, estado:err===0?'OK':err<=1?'Parcial':'Error',
+      origen:'Portal cliente', destino:'ARCA SAP'};
+  }).sort((a,b)=>b.fecha-a.fecha);
+
+  const actHeat = DIAS_SEM_SD.map(()=>Array.from({length:24},(_,h)=>Math.round(r2()*(h>=8&&h<=18?12:2))));
+
+  return {clientesData, erroresAccion, errHeat, tendencia, semanas, sesiones, actHeat};
+}
+
+let _SD = null;
+function getSD(){if(!_SD)_SD=generarDatosSinteticos();return _SD;}
+
+// ── plotly config ─────────────────────────────────────────────────────────────
+const _PC = {paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'}};
+const _PM = {t:16,b:40,l:50,r:16};
+const _PMS= {t:16,b:40,l:130,r:40};
+
 // ══ DASHBOARD ARCA ══
 async function loadArcaData() {
   document.getElementById('arca-date').textContent = new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  try {
-    const [stats, hist] = await Promise.all([
-      fetch(`${API}/estadisticas`).then(r=>r.json()),
-      fetch(`${API}/historial?limit=50`).then(r=>r.json()),
-    ]);
-    renderArcaKPIs(stats);
-    renderArcaDias(stats.por_dia||[]);
-    renderArcaClientesTasa(stats.por_cliente||[]);
-    renderArcaClientesBar(stats.por_cliente||[]);
-    renderArcaClientesTable(stats.por_cliente||[]);
-    renderArcaErrores(stats.errores_por_accion||[]);
-    renderArcaHistorial(hist);
-  } catch(e) {
-    console.error('Error cargando datos Arca:', e);
-  }
-}
-
-function renderArcaKPIs(s) {
+  const sd = getSD();
+  const totalSes = sd.clientesData.reduce((a,c)=>a+c.totalSesiones,0);
+  const totalOrd = sd.clientesData.reduce((a,c)=>a+c.totalOrdenes, 0);
+  const tasaGlob = Math.round(sd.clientesData.reduce((a,c)=>a+c.tasaGlobal,0)/sd.clientesData.length);
   document.getElementById('arca-kpis').innerHTML=`
-    <div class="metric-card"><div class="metric-label">Sesiones totales</div><div class="metric-value">${s.total_sesiones||0}</div></div>
-    <div class="metric-card"><div class="metric-label">Tasa de éxito</div><div class="metric-value green">${s.tasa_exito_pct||0}<span style="font-size:18px">%</span></div></div>
-    <div class="metric-card"><div class="metric-label">Planes activos</div><div class="metric-value red">${s.planes_activos||0}</div></div>
-    <div class="metric-card"><div class="metric-label">Clientes activos</div><div class="metric-value">${s.clientes_activos||0}</div></div>`;
+    <div class="metric-card"><div class="metric-label">Sesiones totales</div><div class="metric-value">${totalSes.toLocaleString()}</div></div>
+    <div class="metric-card"><div class="metric-label">Órdenes procesadas</div><div class="metric-value green">${totalOrd.toLocaleString()}</div></div>
+    <div class="metric-card"><div class="metric-label">Tasa de éxito global</div><div class="metric-value green">${tasaGlob}<span style="font-size:18px">%</span></div></div>
+    <div class="metric-card"><div class="metric-label">Clientes activos</div><div class="metric-value">${sd.clientesData.length}</div></div>`;
+  renderArcaDias(sd);
+  renderArcaClientesTasa(sd.clientesData);
+  renderArcaClientesBar(sd.clientesData);
+  renderArcaClientesEvol(sd.clientesData);
+  renderArcaClientesHeat(sd.clientesData);
+  renderArcaClientesTable(sd.clientesData);
+  renderArcaErroresPareto(sd.erroresAccion);
+  renderArcaErroresDonut(sd.erroresAccion);
+  renderArcaErroresHeat(sd.errHeat);
+  renderArcaErroresTrend(sd.tendencia, sd.semanas);
+  renderArcaErroresTable(sd.erroresAccion);
+  renderArcaHistorialKPIs(sd.sesiones);
+  renderArcaHistorialTimeline(sd.sesiones);
+  renderArcaHistorialDist(sd.sesiones);
+  renderArcaHistorialBox(sd.clientesData);
+  renderArcaHistorialHeat(sd.actHeat);
+  renderArcaHistorial(sd.sesiones);
 }
 
-function renderArcaDias(dias) {
-  if (!dias.length) return;
-  const rev=[...dias].reverse();
-  Plotly.newPlot('chart-dias',[{x:rev.map(d=>d.dia),y:rev.map(d=>d.sesiones),type:'bar',marker:{color:'rgba(200,16,46,0.7)'},name:'Sesiones'}],{paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:10,b:36,l:36,r:10},showlegend:false,xaxis:{gridcolor:'#EEEBE6'},yaxis:{gridcolor:'#EEEBE6',title:'Sesiones'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'}},{responsive:true,displayModeBar:false});
+function renderArcaDias(sd) {
+  const vals=MESES_SD.map((_,i)=>sd.clientesData.reduce((a,c)=>a+c.meses[i].sesiones,0));
+  Plotly.newPlot('chart-dias',[{x:MESES_SD,y:vals,type:'bar',marker:{color:'rgba(200,16,46,0.75)',line:{color:'#a00e24',width:1}},hovertemplate:'%{x}: <b>%{y}</b><extra></extra>'}],
+    {..._PC,margin:_PM,showlegend:false,xaxis:{gridcolor:'#EEEBE6'},yaxis:{gridcolor:'#EEEBE6',title:'Sesiones'}},{responsive:true,displayModeBar:false});
 }
 
 function renderArcaClientesTasa(clientes) {
-  if (!clientes.length) return;
-  Plotly.newPlot('chart-clientes-tasa',[{x:clientes.map(c=>c.empresa),y:clientes.map(c=>Math.round(c.tasa_exito||0)),type:'bar',marker:{color:clientes.map(c=>(c.tasa_exito||0)>=80?'#1A7A45':(c.tasa_exito||0)>=60?'#B87014':'#C8102E')}}],{paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:10,b:36,l:36,r:10},showlegend:false,yaxis:{range:[0,100],title:'%',gridcolor:'#EEEBE6'},xaxis:{gridcolor:'#EEEBE6'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'}},{responsive:true,displayModeBar:false});
+  const top=[...clientes].sort((a,b)=>b.tasaGlobal-a.tasaGlobal).slice(0,6);
+  Plotly.newPlot('chart-clientes-tasa',[{type:'bar',orientation:'h',y:top.map(c=>c.nombre),x:top.map(c=>Math.round(c.tasaGlobal)),
+    marker:{color:top.map(c=>c.tasaGlobal>=88?'#1A7A45':c.tasaGlobal>=80?'#B87014':'#C8102E')},
+    text:top.map(c=>Math.round(c.tasaGlobal)+'%'),textposition:'outside',hovertemplate:'%{y}: <b>%{x}%</b><extra></extra>'}],
+    {..._PC,margin:_PMS,showlegend:false,xaxis:{range:[0,106],gridcolor:'#EEEBE6',title:'%'},yaxis:{gridcolor:'#EEEBE6'}},{responsive:true,displayModeBar:false});
 }
 
 function renderArcaClientesBar(clientes) {
-  if (!clientes.length) return;
-  Plotly.newPlot('chart-clientes-bar',[{x:clientes.map(c=>c.empresa),y:clientes.map(c=>c.sesiones),name:'Sesiones',type:'bar',marker:{color:'rgba(200,16,46,0.7)'}},{x:clientes.map(c=>c.empresa),y:clientes.map(c=>c.total_errores||0),name:'Errores',type:'bar',marker:{color:'rgba(107,58,42,0.7)'}}],{barmode:'group',paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:10,b:36,l:36,r:10},legend:{orientation:'h',y:1.1},xaxis:{gridcolor:'#EEEBE6'},yaxis:{gridcolor:'#EEEBE6'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'}},{responsive:true,displayModeBar:false});
+  const s=[...clientes].sort((a,b)=>b.totalSesiones-a.totalSesiones);
+  Plotly.newPlot('chart-clientes-bar',
+    [{name:'Sesiones',type:'bar',x:s.map(c=>c.nombre),y:s.map(c=>c.totalSesiones),marker:{color:'rgba(200,16,46,0.8)'},hovertemplate:'%{x}<br>Sesiones: <b>%{y}</b><extra></extra>'},
+     {name:'Órdenes', type:'bar',x:s.map(c=>c.nombre),y:s.map(c=>c.totalOrdenes), marker:{color:'rgba(107,58,42,0.7)'},hovertemplate:'%{x}<br>Órdenes: <b>%{y}</b><extra></extra>'}],
+    {..._PC,margin:_PM,barmode:'group',xaxis:{gridcolor:'#EEEBE6',tickangle:-30},yaxis:{gridcolor:'#EEEBE6'},legend:{orientation:'h',y:1.08}},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaClientesEvol(clientes) {
+  const top5=[...clientes].sort((a,b)=>b.totalSesiones-a.totalSesiones).slice(0,5);
+  Plotly.newPlot('chart-clientes-evol',top5.map(c=>({name:c.nombre,type:'scatter',mode:'lines+markers',x:MESES_SD,y:c.meses.map(m=>m.sesiones),line:{width:2,color:c.color},marker:{size:5,color:c.color},hovertemplate:c.nombre+' %{x}: <b>%{y}</b><extra></extra>'})),
+    {..._PC,margin:_PM,xaxis:{gridcolor:'#EEEBE6'},yaxis:{gridcolor:'#EEEBE6',title:'Sesiones'},legend:{orientation:'h',y:1.1}},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaClientesHeat(clientes) {
+  Plotly.newPlot('chart-clientes-heat',[{type:'heatmap',z:clientes.map(c=>c.meses.map(m=>m.sesiones)),x:MESES_SD,y:clientes.map(c=>c.nombre),
+    colorscale:[[0,'#FAF8F5'],[0.5,'rgba(200,16,46,0.45)'],[1,'#C8102E']],hovertemplate:'%{y} · %{x}: <b>%{z} sesiones</b><extra></extra>',showscale:true}],
+    {..._PC,margin:{t:16,b:40,l:130,r:20},xaxis:{gridcolor:'#EEEBE6'},yaxis:{gridcolor:'#EEEBE6'}},{responsive:true,displayModeBar:false});
 }
 
 function renderArcaClientesTable(clientes) {
-  document.getElementById('clientes-tbody').innerHTML=clientes.map(c=>{const t=Math.round(c.tasa_exito||0);const color=t>=80?'#1A7A45':t>=60?'#B87014':'#C8102E';return`<tr><td><strong>${c.empresa}</strong></td><td>${c.sesiones}</td><td><div class="tasa-bar"><div class="tasa-track"><div class="tasa-fill" style="width:${t}%;background:${color}"></div></div><span style="font-size:12px;font-weight:600;color:${color}">${t}%</span></div></td><td>${c.total_errores||0}</td></tr>`}).join('');
+  const s=[...clientes].sort((a,b)=>b.totalSesiones-a.totalSesiones);
+  document.getElementById('clientes-tbody').innerHTML=s.map(c=>{
+    const t=Math.round(c.tasaGlobal),col=t>=88?'#1A7A45':t>=80?'#B87014':'#C8102E';
+    const up=c.meses[5].sesiones>c.meses[0].sesiones;
+    return`<tr><td><strong>${c.nombre}</strong><br><span style="font-size:11px;color:var(--g500)">${c.segmento}</span></td><td>${c.totalSesiones.toLocaleString()}</td><td>${c.totalOrdenes.toLocaleString()}</td>
+    <td><div class="tasa-bar"><div class="tasa-track"><div class="tasa-fill" style="width:${t}%;background:${col}"></div></div><span style="font-size:12px;font-weight:600;color:${col}">${t}%</span></div></td>
+    <td>${Math.round(c.duracionProm)}s</td><td style="color:${c.errores>50?'var(--err)':'var(--g700)'}">${c.errores.toLocaleString()}</td>
+    <td style="font-size:18px;font-weight:700;color:${up?'#1A7A45':'#C8102E'}">${up?'↑':'↓'}</td></tr>`;
+  }).join('');
 }
 
-function renderArcaErrores(errores) {
-  if (!errores.length) return;
-  Plotly.newPlot('chart-errores-accion',[{x:errores.map(e=>e.accion),y:errores.map(e=>e.total),type:'bar',marker:{color:'rgba(200,16,46,0.75)'},text:errores.map(e=>e.total),textposition:'outside'}],{paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:20,b:36,l:36,r:10},showlegend:false,xaxis:{gridcolor:'#EEEBE6'},yaxis:{title:'Total errores',gridcolor:'#EEEBE6'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'}},{responsive:true,displayModeBar:false});
-  document.getElementById('errores-tbody').innerHTML=errores.map(e=>`<tr><td><code style="font-size:12px;background:var(--g50);padding:2px 6px;border-radius:3px">${e.accion}</code></td><td><strong>${e.total}</strong></td></tr>`).join('');
+function renderArcaErroresPareto(errores) {
+  const total=errores.reduce((a,e)=>a+e.total,0);
+  let acum=0;const pcts=errores.map(e=>{acum+=e.total;return Math.round(acum/total*100);});
+  Plotly.newPlot('chart-errores-pareto',
+    [{type:'bar',name:'Errores',x:errores.map(e=>e.catShort),y:errores.map(e=>e.total),marker:{color:'rgba(200,16,46,0.8)'},hovertemplate:'%{x}<br><b>%{y}</b><extra></extra>'},
+     {type:'scatter',name:'% acum.',x:errores.map(e=>e.catShort),y:pcts,yaxis:'y2',line:{color:'#B87014',width:2},mode:'lines+markers',marker:{size:6,color:'#B87014'},hovertemplate:'%{x}: <b>%{y}%</b><extra></extra>'}],
+    {..._PC,margin:_PM,xaxis:{gridcolor:'#EEEBE6',tickangle:-20},yaxis:{gridcolor:'#EEEBE6',title:'Errores'},
+     yaxis2:{overlaying:'y',side:'right',range:[0,110],title:'% acumulado',showgrid:false,ticksuffix:'%'},legend:{orientation:'h',y:1.08}},{responsive:true,displayModeBar:false});
 }
 
-function renderArcaHistorial(hist) {
-  document.getElementById('historial-tbody').innerHTML=hist.map(s=>{
-    const tasa=s.n_pasos>0?Math.round(s.n_exitosos/s.n_pasos*100):0;
-    const color=tasa>=80?'#1A7A45':tasa>=60?'#B87014':'#C8102E';
-    const fecha=new Date(s.fecha).toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'});
-    return`<tr><td style="font-size:12px;color:var(--g500)">${fecha}</td><td><strong>${s.empresa||s.email_usuario||'—'}</strong></td><td style="font-size:12px">${s.plataforma_origen||'—'} → ${s.plataforma_destino||'—'}</td><td>${s.n_pasos}</td><td style="color:${color};font-weight:600">${tasa}%</td><td style="color:${s.n_errores>0?'var(--err)':'var(--g500)'}">${s.n_errores}</td><td style="font-size:12px;color:var(--g500)">${s.duracion_seg?s.duracion_seg.toFixed(1)+'s':'—'}</td></tr>`;
+function renderArcaErroresDonut(errores) {
+  const grps={};errores.forEach(e=>{grps[e.grupo]=(grps[e.grupo]||0)+e.total;});
+  const lbls=Object.keys(grps),vals=Object.values(grps);
+  const colors={'Navegación':'#C8102E','Tiempo':'#2E86AB','Formularios':'#1A7A45','Autenticación':'#B87014'};
+  Plotly.newPlot('chart-errores-donut',[{type:'pie',hole:0.52,labels:lbls,values:vals,marker:{colors:lbls.map(l=>colors[l]||'#999'),line:{color:'white',width:2}},
+    textinfo:'label+percent',hovertemplate:'%{label}: <b>%{value}</b> errores<extra></extra>'}],
+    {..._PC,margin:{t:30,b:40,l:16,r:16},showlegend:true,legend:{orientation:'h',y:-0.1}},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaErroresHeat(heat) {
+  Plotly.newPlot('chart-errores-heat',[{type:'heatmap',z:heat,x:Array.from({length:24},(_,i)=>`${i}h`),y:DIAS_SEM_SD,
+    colorscale:[[0,'#FAF8F5'],[0.5,'rgba(200,16,46,0.5)'],[1,'#C8102E']],hovertemplate:'%{y} %{x}: <b>%{z} errores</b><extra></extra>',showscale:true}],
+    {..._PC,margin:{t:16,b:40,l:50,r:20},xaxis:{gridcolor:'#EEEBE6'},yaxis:{gridcolor:'#EEEBE6'}},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaErroresTrend(tendencia, semanas) {
+  const col=['#C8102E','#B87014','#2E86AB','#1A7A45'];
+  Plotly.newPlot('chart-errores-trend',tendencia.map((t,i)=>({name:t.catShort,type:'scatter',mode:'lines',fill:i===0?'tozeroy':'tonexty',x:semanas,y:t.vals,
+    line:{color:col[i],width:1.5},hovertemplate:t.catShort+' %{x}: <b>%{y}</b><extra></extra>'})),
+    {..._PC,margin:_PM,xaxis:{gridcolor:'#EEEBE6',tickangle:-30},yaxis:{gridcolor:'#EEEBE6',title:'Errores'},legend:{orientation:'h',y:1.1}},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaErroresTable(errores) {
+  const total=errores.reduce((a,e)=>a+e.total,0);
+  const now=new Date();
+  document.getElementById('errores-tbody').innerHTML=errores.map((e,i)=>{
+    const fecha=new Date(now-(1+i*2.3|0)*86400000).toLocaleDateString('es-MX',{dateStyle:'short'});
+    const grpColor={'Navegación':'#C8102E','Tiempo':'#2E86AB','Formularios':'#1A7A45','Autenticación':'#B87014'}[e.grupo]||'#999';
+    return`<tr><td><code style="font-size:12px;background:var(--g50);padding:2px 6px;border-radius:3px">${e.cat}</code></td>
+    <td><span style="background:${grpColor}18;color:${grpColor};padding:2px 8px;border-radius:12px;font-size:11px">${e.grupo}</span></td>
+    <td><strong>${e.total}</strong></td>
+    <td><div class="tasa-track" style="width:80px;display:inline-block"><div class="tasa-fill" style="width:${Math.round(e.total/errores[0].total*100)}%;background:var(--err)"></div></div> ${Math.round(e.total/total*100)}%</td>
+    <td style="color:var(--g500);font-size:12px">${fecha}</td></tr>`;
+  }).join('');
+}
+
+function renderArcaHistorialKPIs(sesiones) {
+  const ok=sesiones.filter(s=>s.estado==='OK').length;
+  const par=sesiones.filter(s=>s.estado==='Parcial').length;
+  const err=sesiones.filter(s=>s.estado==='Error').length;
+  const dur=sesiones.reduce((a,s)=>a+s.duracion,0)/sesiones.length;
+  document.getElementById('hist-kpis').innerHTML=`
+    <div class="metric-card"><div class="metric-label">Sesiones OK</div><div class="metric-value green">${ok}</div></div>
+    <div class="metric-card"><div class="metric-label">Sesiones parciales</div><div class="metric-value warn">${par}</div></div>
+    <div class="metric-card"><div class="metric-label">Sesiones con error</div><div class="metric-value red">${err}</div></div>
+    <div class="metric-card"><div class="metric-label">Duración promedio</div><div class="metric-value">${dur.toFixed(0)}<span style="font-size:16px">s</span></div></div>`;
+}
+
+function renderArcaHistorialTimeline(sesiones) {
+  const colMap={OK:'#1A7A45',Parcial:'#B87014',Error:'#C8102E'};
+  const byEst={OK:[],Parcial:[],Error:[]};
+  sesiones.forEach(s=>byEst[s.estado].push(s));
+  Plotly.newPlot('chart-hist-timeline',Object.entries(byEst).map(([est,ss])=>({type:'scatter',mode:'markers',name:est,x:ss.map(s=>s.fecha),y:ss.map(s=>s.duracion),text:ss.map(s=>s.empresa),marker:{color:colMap[est],size:8,opacity:0.75,line:{color:'white',width:1}},hovertemplate:'<b>%{text}</b><br>%{x|%d/%m %H:%M}<br>Duración: %{y:.0f}s<extra></extra>'})),
+    {..._PC,margin:_PM,xaxis:{gridcolor:'#EEEBE6',type:'date'},yaxis:{gridcolor:'#EEEBE6',title:'Duración (s)'},legend:{orientation:'h',y:1.08}},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaHistorialDist(sesiones) {
+  Plotly.newPlot('chart-hist-dist',[{type:'histogram',x:sesiones.map(s=>s.duracion),nbinsx:20,marker:{color:'rgba(200,16,46,0.7)',line:{color:'#a00e24',width:1}},hovertemplate:'%{x:.0f}s: <b>%{y}</b><extra></extra>'}],
+    {..._PC,margin:_PM,showlegend:false,xaxis:{gridcolor:'#EEEBE6',title:'Segundos'},yaxis:{gridcolor:'#EEEBE6',title:'Sesiones'}},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaHistorialBox(clientes) {
+  const r3=_rngSD(20241201);
+  Plotly.newPlot('chart-hist-box',clientes.slice(0,6).map(c=>({type:'box',name:c.nombre,y:Array.from({length:30},()=>c.duracionProm*(0.5+r3())),marker:{color:c.color,size:4},line:{color:c.color},boxpoints:'outliers',jitter:0.3,hovertemplate:'%{y:.1f}s<extra>'+c.nombre+'</extra>'})),
+    {..._PC,margin:_PM,xaxis:{gridcolor:'#EEEBE6',tickangle:-20},yaxis:{gridcolor:'#EEEBE6',title:'Duración (s)'},showlegend:false},{responsive:true,displayModeBar:false});
+}
+
+function renderArcaHistorialHeat(heat) {
+  Plotly.newPlot('chart-hist-heat',[{type:'heatmap',z:heat,x:Array.from({length:24},(_,i)=>`${i}h`),y:DIAS_SEM_SD,
+    colorscale:[[0,'#FAF8F5'],[0.5,'rgba(200,16,46,0.4)'],[1,'#C8102E']],hovertemplate:'%{y} %{x}: <b>%{z} sesiones</b><extra></extra>',showscale:true}],
+    {..._PC,margin:{t:16,b:40,l:50,r:20},xaxis:{gridcolor:'#EEEBE6'},yaxis:{gridcolor:'#EEEBE6'}},{responsive:true,displayModeBar:false});
+}
+
+let _sesionesAll = [];
+function renderArcaHistorial(sesiones) {_sesionesAll=sesiones;filtrarHistorial('');}
+function filtrarHistorial(q) {
+  const lista=q?_sesionesAll.filter(s=>s.empresa.toLowerCase().includes(q.toLowerCase())):_sesionesAll;
+  document.getElementById('historial-tbody').innerHTML=lista.slice(0,100).map(s=>{
+    const tasa=s.pasos>0?Math.round(s.exitosos/s.pasos*100):0;
+    const col=tasa>=80?'#1A7A45':tasa>=60?'#B87014':'#C8102E';
+    const sc={OK:'#1A7A45',Parcial:'#B87014',Error:'#C8102E'}[s.estado];
+    const sb={OK:'#F0FFF4',Parcial:'#FFFBF0',Error:'#FFF0F0'}[s.estado];
+    return`<tr><td style="font-size:12px;color:var(--g500)">${s.fecha.toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'})}</td><td><strong>${s.empresa}</strong></td><td style="font-size:12px">${s.origen} → ${s.destino}</td><td>${s.pasos}</td><td style="color:${col};font-weight:600">${tasa}%</td><td style="color:${s.errores>0?'var(--err)':'var(--g500)'}">${s.errores}</td><td style="font-size:12px;color:var(--g500)">${s.duracion.toFixed(1)}s</td><td><span style="background:${sb};color:${sc};padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">${s.estado}</span></td></tr>`;
   }).join('');
 }
 

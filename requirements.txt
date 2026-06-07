@@ -34,5 +34,8 @@ plotly>=5.22.0
 pandas>=2.2.0
 numpy>=1.26.0
 
+# ── Seguridad ────────────────────────────────────────────────────────────────
+cryptography>=41.0.0        # cifrado Fernet (AES-128-CBC + HMAC) de datos financieros y correos
+
 # ── Utils ────────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0

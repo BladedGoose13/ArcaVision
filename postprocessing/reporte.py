@@ -1241,14 +1241,34 @@ def enviar_ticket(datos_pedido: dict, datos_reporte: dict,
     msg.attach(alt)
 
     if excel_path and Path(excel_path).exists():
+        fecha_safe = fecha[:10].replace("/", "-")
         with open(excel_path, "rb") as f:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(f.read())
-            encoders.encode_base64(part)
-            fecha_safe = fecha[:10].replace("/", "-")
-            part.add_header("Content-Disposition",
-                            f"attachment; filename=pedido_arca_{fecha_safe}.xlsx")
-            msg.attach(part)
+            contenido = f.read()
+
+        # El correo viaja cifrado en tránsito por SMTP_SSL (TLS). Además, si
+        # EMAIL_CIFRAR_ADJUNTO=1 y hay llave, el Excel con el detalle financiero
+        # se cifra también en reposo (se adjunta .xlsx.enc, ilegible sin la llave).
+        cifrar_adj = os.getenv("EMAIL_CIFRAR_ADJUNTO", "").strip() in ("1", "true", "yes")
+        if cifrar_adj:
+            try:
+                from postprocessing.crypto import cifrar_bytes, cifrado_disponible
+                if cifrado_disponible():
+                    contenido = cifrar_bytes(contenido)
+                    filename = f"pedido_arca_{fecha_safe}.xlsx.enc"
+                else:
+                    print("  ⚠️  EMAIL_CIFRAR_ADJUNTO activo pero sin llave — se adjunta sin cifrar")
+                    filename = f"pedido_arca_{fecha_safe}.xlsx"
+            except Exception as e:
+                print(f"  ⚠️  No se pudo cifrar el adjunto ({e}) — se adjunta sin cifrar")
+                filename = f"pedido_arca_{fecha_safe}.xlsx"
+        else:
+            filename = f"pedido_arca_{fecha_safe}.xlsx"
+
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(contenido)
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", f"attachment; filename={filename}")
+        msg.attach(part)
 
     enviado = False
     try:
@@ -1337,6 +1357,27 @@ def procesar_ticket_completo(datos_reporte: dict,
     resultado_texto = " ".join(partes)
 
     datos_pedido = extraer_datos_pedido(resultado_texto, datos_reporte)
+
+    # ── Anclaje de integridad en Solana (hash del registro financiero) ────────
+    # Complementa al cifrado: el cifrado oculta el dato, el hash on-chain prueba
+    # que no fue alterado. Usa fallback local si Solana no está configurado.
+    try:
+        from postprocessing.solana_audit import registrar_en_solana_safe
+        registro_financiero = {
+            "cliente":   datos_pedido.get("cliente", ""),
+            "comercio":  datos_pedido.get("comercio", ""),
+            "productos": datos_pedido.get("productos", []),
+            "subtotal":  datos_pedido.get("subtotal", 0),
+            "impuestos": datos_pedido.get("impuestos", 0),
+            "total":     datos_pedido.get("total", 0),
+            "fecha":     datos_pedido.get("fecha", ""),
+        }
+        anclaje = registrar_en_solana_safe(registro_financiero, fallback_on_error=True)
+        datos_pedido["solana_hash"]    = anclaje.get("payload_hash")
+        datos_pedido["solana_tx"]      = anclaje.get("tx_signature")
+        datos_pedido["solana_explorer"] = anclaje.get("explorer_url")
+    except Exception as e:
+        print(f"  ⚠️  Anclaje Solana no disponible: {e}")
 
     # ── Ticket email (primero: define datos_pedido["ticket_enviado"]) ─────────
     ticket_path = enviar_ticket(datos_pedido, datos_reporte, email_cliente, excel_path)

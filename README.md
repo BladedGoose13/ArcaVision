@@ -125,6 +125,39 @@ Google Sheets si configuras `GOOGLE_CREDENTIALS_PATH` y `GOOGLE_SHEET_ID` en `.e
 
 ---
 
+## Seguridad de datos financieros y correos
+
+Dos capas complementarias protegen los registros de compra-venta:
+
+| Capa | Módulo | Garantía | Cómo |
+|---|---|---|---|
+| **Confidencialidad** | `postprocessing/crypto.py` | Nadie sin la llave lee el dato | Cifrado **Fernet** (AES-128-CBC + HMAC-SHA256) |
+| **Integridad** | `postprocessing/solana_audit.py` | Nadie altera el dato sin que se note | Hash **SHA-256** anclado en **Solana** Devnet |
+| **Tránsito** | `enviar_ticket()` | El correo viaja cifrado | **SMTP_SSL / TLS** (puerto 465) |
+
+**Qué se cifra en reposo:**
+- El detalle de línea de cada pedido en SQLite (`pedidos.productos_json`) — precios y cantidades por producto se guardan como token `enc:v1:…`, ilegibles sin la llave. La lectura los descifra de forma transparente.
+- Opcionalmente el Excel financiero adjunto al correo (`EMAIL_CIFRAR_ADJUNTO=1` → se adjunta `.xlsx.enc`).
+
+**Variables de entorno (`.env`):**
+
+```bash
+# Cifrado (genera la llave una sola vez y guárdala bien)
+ARCAVISION_ENC_KEY=        # python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+EMAIL_CIFRAR_ADJUNTO=0     # 1 = cifrar el Excel adjunto en el correo
+
+# Integridad on-chain (opcional; si falta usa fallback local con hash)
+SOLANA_PRIVATE_KEY=        # keypair del pagador (JSON array o Base58)
+SOLANA_RPC_URL=            # default: https://api.devnet.solana.com
+```
+
+> Si no defines `ARCAVISION_ENC_KEY`, ArcaVision genera y guarda una llave en
+> `~/.arcavision/enc.key` (con permisos `600`, fuera de git). **Respáldala**: sin
+> ella no podrás descifrar registros antiguos. Los datos legados en claro siguen
+> leyéndose sin problema (degradación retro-compatible).
+
+---
+
 ## Base de datos
 
 SQLite embebida con schema compatible con SQL Server. Se genera automáticamente en `arcavision.db` al primer arranque.
