@@ -34,7 +34,12 @@ def _run_browser_use_sync(task: str, api_key: str) -> str:
 
     async def _inner():
         llm   = ChatAnthropic(model="claude-opus-4-5", api_key=api_key)
-        agent = Agent(task=task, llm=llm, max_failures=2)
+        agent = Agent(
+            task=task,
+            llm=llm,
+            max_failures=2,
+            use_vision=False,   # DOM-based navigation: clicks más precisos, sin scroll loop
+        )
         result = await agent.run(max_steps=25)
         return str(result)
 
@@ -75,12 +80,13 @@ PASOS A EJECUTAR ({n_pasos} en total — guíate por la intención, no por coord
 {pasos_texto}
 
 REGLAS DE DECISIÓN — son obligatorias, no opcionales:
-1. Intenta cada acción UNA sola vez. Si falla, toma una decisión inmediata: alternativa obvia o continuar.
-2. Si un paso falla → CONTINÚA con el siguiente. No reintentes lo mismo.
-3. Si 2 pasos seguidos fallan → TERMINA ahora. Reporta qué falló.
-4. Si la página tarda más de 10 s, aparece captcha o login inesperado → TERMINA inmediatamente.
-5. Al terminar todos los pasos → cierra y NO hagas nada más. No navegues extra.
-6. Prohibido: bucles, esperas largas, reintentos repetidos de la misma acción fallida.
+1. Para hacer click: busca el elemento por su texto, label o placeholder en el DOM. NUNCA scrollees para buscar un elemento — si no aparece en la lista de elementos del DOM, no existe en la página actual.
+2. Intenta cada acción UNA sola vez. Si falla, toma una decisión inmediata: alternativa obvia o continuar.
+3. Si un paso falla → CONTINÚA con el siguiente. No reintentes lo mismo.
+4. Si 2 pasos seguidos fallan → TERMINA ahora. Reporta qué falló.
+5. Si la página tarda más de 10 s, aparece captcha o login inesperado → TERMINA inmediatamente.
+6. Al terminar todos los pasos → cierra y NO hagas nada más. No navegues extra.
+7. Prohibido: scroll repetido buscando lo mismo, bucles, esperas largas.
 
 Al finalizar (éxito o fallo parcial) responde SOLO este JSON sin texto adicional:
 {{
