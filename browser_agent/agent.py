@@ -33,7 +33,12 @@ def _run_browser_use_sync(task: str, api_key: str) -> dict:
             max_failures=2,
             use_vision=False,
         )
-        result = await agent.run(max_steps=25)
+        try:
+            result = await agent.run(max_steps=25)
+        finally:
+            # Cierre explícito del browser — browser_use NO lo cierra solo
+            # al terminar run(). Probamos las APIs de varias versiones.
+            await _cerrar_browser(agent)
 
         errores = result.errors() if hasattr(result, "errors") else []
         errores = [str(e) for e in errores if e]
@@ -63,6 +68,43 @@ def _run_browser_use_sync(task: str, api_key: str) -> dict:
         }
 
     return asyncio.run(_inner())
+
+
+async def _cerrar_browser(agent) -> None:
+    """
+    Cierra la sesión de browser que browser_use deja abierta tras run().
+    Compatible con distintas versiones: prueba agent.close(),
+    agent.browser_session, agent.browser y sus métodos close/stop/kill.
+    """
+    import inspect
+
+    async def _intentar(fn):
+        try:
+            res = fn()
+            if inspect.isawaitable(res):
+                await res
+            return True
+        except Exception:
+            return False
+
+    # 1) API moderna: agent.close() cierra todo el stack
+    if hasattr(agent, "close"):
+        if await _intentar(agent.close):
+            print("  🔒 Browser cerrado (agent.close)")
+            return
+
+    # 2) Sesión de browser expuesta directamente
+    for attr in ("browser_session", "browser", "_browser_session", "_browser"):
+        sesion = getattr(agent, attr, None)
+        if sesion is None:
+            continue
+        for metodo in ("close", "stop", "kill"):
+            fn = getattr(sesion, metodo, None)
+            if fn and await _intentar(fn):
+                print(f"  🔒 Browser cerrado ({attr}.{metodo})")
+                return
+
+    print("  ⚠️  No se pudo cerrar el browser automáticamente")
 
 
 def _extraer_json_balanceado(texto: str) -> dict:
