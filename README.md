@@ -22,7 +22,7 @@ El flujo completo ocurre dentro de una interfaz web — nada se configura en có
 |---|---|
 | **1. Grabación** | El usuario ejecuta el proceso normalmente y habla en voz alta explicando qué hace |
 | **2. Análisis** | Claude Opus interpreta los screenshots y el audio, genera el plan de automatización |
-| **3. Preguntas** | La IA pregunta únicamente lo que no pudo inferir — credenciales, datos faltantes |
+| **3. Preguntas** | La IA pregunta únicamente lo que no pudo inferir, credenciales, datos faltantes |
 | **4. Revisión** | El usuario revisa el mapeo de campos con scores de confianza bayesiana |
 | **5. Ejecución** | El agente navega el portal, extrae datos y registra la orden en Arca |
 | **6. Reporte** | Se genera Excel, PDF y ticket de confirmación; se envía por email |
@@ -58,7 +58,7 @@ Llena las variables en `.env`. El agente descarga su propio navegador la primera
 uvicorn backend.api:app --reload --port 8000
 ```
 
-Abre `http://localhost:8000` — todo el flujo ocurre ahí.
+Abre `http://localhost:8000`: todo el flujo ocurre ahí.
 
 &nbsp;
 
@@ -156,12 +156,10 @@ ArcaVision/
 
 | Módulo | Responsable |
 |---|---|
-| Orquestación + Bayesian confidence (`core/workflow_generator.py`) | Max |
-| Browser agent (`browser_agent/agent.py`, `grabador.py`) | Persona 2 |
-| Post-procesamiento + tickets (`postprocessing/`) | Persona 3 |
-| Frontend + Monte Carlo (`frontend_web/`, `frontend/monte_carlo.py`) | Persona 4 |
-
-&nbsp;
+| Team lead, project architect, AI & backend engineering | Max |
+| Mathematical modeling and API integration | Agatha |
+| AI engineer and cloud computing | Izhar |
+| Data analyst and engineer | Giancarlo |
 
 &nbsp;
 
