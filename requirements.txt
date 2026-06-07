@@ -1,11 +1,12 @@
 # ── Core AI ──────────────────────────────────────────────────────────────────
-anthropic>=0.40.0
+anthropic>=0.40.0           # AsyncAnthropic incluido
 groq>=0.9.0
 
 # ── Browser agent ────────────────────────────────────────────────────────────
 browser-use>=0.1.0          # motor principal — instalar con: pip install browser-use
-langchain-anthropic>=0.1.0  # requerido por browser-use
+langchain-anthropic>=0.3.0  # requerido por browser-use
 playwright>=1.44.0          # fallback si browser-use no está
+# playwright install chromium   # correr después de instalar
 
 # ── Grabador ─────────────────────────────────────────────────────────────────
 pillow>=10.0.0
@@ -15,18 +16,17 @@ pyaudio>=0.2.14             # en Windows: pip install pipwin && pipwin install p
 
 # ── Backend ──────────────────────────────────────────────────────────────────
 fastapi>=0.110.0
-uvicorn>=0.29.0
+uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 
 # ── Reportes ─────────────────────────────────────────────────────────────────
-openpyxl>=3.1.0             # Excel
-reportlab>=4.2.0            # PDF (opcional)
+openpyxl>=3.1.0
 
-# ── Post-procesamiento ───────────────────────────────────────────────────────
-pymongo>=4.7.0              # MongoDB (opcional)
-google-generativeai>=0.7.0  # Gemini (opcional)
-solana>=0.34.0              # Solana audit trail (opcional)
-sendgrid>=6.11.0            # Email alternativo (opcional)
+# ── Post-procesamiento (opcionales) ──────────────────────────────────────────
+# pymongo>=4.7.0
+# google-generativeai>=0.7.0
+# solana>=0.34.0
+# sendgrid>=6.11.0
 
 # ── Dashboard / análisis ─────────────────────────────────────────────────────
 plotly>=5.22.0

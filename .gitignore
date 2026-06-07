@@ -1,8 +1,13 @@
 .env
 __pycache__/
 *.pyc
-.playwright/
+*.pyo
+arcfast.db
+sesiones/audio_*.wav
+sesiones/plan.json
+sesiones/reporte.json
+reportes/
+.venv/
+venv/
 node_modules/
-.streamlit/secrets.toml
-data/real/
-*.pdf
+.DS_Store

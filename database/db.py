@@ -3,6 +3,11 @@ database/db.py
 --------------
 SQLite con schema compatible con SQL Server.
 Para migrar a producción: cambiar get_connection().
+
+Fixes:
+  - guardar_sesion elimina credenciales_obtenidas del plan antes de serializar
+  - guardar_plan acepta usuario_id opcional
+  - hash_password usa PBKDF2-SHA256 (sin cambios — ya era correcto)
 """
 
 import sqlite3
@@ -25,7 +30,7 @@ def get_connection():
 def hash_password(password: str, salt: str = None) -> tuple:
     if not salt:
         salt = secrets.token_hex(32)
-    hashed = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000).hex()
+    hashed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100_000).hex()
     return hashed, salt
 
 
@@ -88,8 +93,8 @@ def init_db():
         duracion_seg        REAL,
         plan_id             INTEGER,
         resultado_json      TEXT,
-        FOREIGN KEY (plan_id)     REFERENCES planes(id),
-        FOREIGN KEY (usuario_id)  REFERENCES usuarios(id)
+        FOREIGN KEY (plan_id)    REFERENCES planes(id),
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
     );
 
     CREATE TABLE IF NOT EXISTS errores (
@@ -104,22 +109,21 @@ def init_db():
     """)
     conn.commit()
 
-    # Seed: usuario Arca y usuario demo cliente
+    # Seed inicial
     cur.execute("SELECT COUNT(*) as n FROM usuarios")
     if cur.fetchone()["n"] == 0:
         now = datetime.now().isoformat()
         for email, pwd, rol, empresa in [
-            ("arca@arcacontinental.mx",  "arca2026",    "arca",    "Arca Continental"),
-            ("walmart@walmart.com.mx",   "cliente2026", "cliente", "Walmart México"),
-            ("soriana@soriana.com",      "cliente2026", "cliente", "Soriana"),
+            ("arca@arcacontinental.mx", "arca2026",    "arca",    "Arca Continental"),
+            ("walmart@walmart.com.mx",  "cliente2026", "cliente", "Walmart México"),
+            ("soriana@soriana.com",     "cliente2026", "cliente", "Soriana"),
         ]:
             h, s = hash_password(pwd)
             cur.execute(
                 "INSERT INTO usuarios (email,password_hash,salt,rol,empresa,fecha_creacion) VALUES (?,?,?,?,?,?)",
-                (email, h, s, rol, empresa, now)
+                (email, h, s, rol, empresa, now),
             )
         conn.commit()
-
     conn.close()
 
 
@@ -147,7 +151,7 @@ def registrar_usuario(email: str, password: str, rol: str, empresa: str) -> dict
     try:
         cur.execute(
             "INSERT INTO usuarios (email,password_hash,salt,rol,empresa,fecha_creacion) VALUES (?,?,?,?,?,?)",
-            (email, h, s, rol, empresa, now)
+            (email, h, s, rol, empresa, now),
         )
         conn.commit()
         uid = cur.lastrowid
@@ -160,27 +164,43 @@ def registrar_usuario(email: str, password: str, rol: str, empresa: str) -> dict
 
 # ─── Planes ───────────────────────────────────────────────────────────────────
 
+def _limpiar_credenciales(plan: dict) -> dict:
+    """Elimina credenciales antes de persistir — nunca guardar passwords en DB."""
+    return {k: v for k, v in plan.items() if k != "credenciales_obtenidas"}
+
+
 def guardar_plan(plan: dict, usuario_id: int = None) -> int:
+    plan_limpio = _limpiar_credenciales(plan)
     conn = get_connection()
     cur  = conn.cursor()
     now  = datetime.now().isoformat()
-    cur.execute("UPDATE planes SET activo=0 WHERE url_portal=?", (plan.get("url_portal",""),))
+    cur.execute("UPDATE planes SET activo=0 WHERE url_portal=?", (plan_limpio.get("url_portal", ""),))
     cur.execute("""
         INSERT INTO planes (url_portal,plataforma_origen,plataforma_destino,
                             objetivo,plan_json,activo,fecha_creacion,usuario_id)
         VALUES (?,?,?,?,?,1,?,?)
-    """, (plan.get("url_portal",""), plan.get("plataforma_origen",""),
-          plan.get("plataforma_destino",""), plan.get("objetivo",""),
-          json.dumps(plan, ensure_ascii=False), now, usuario_id))
+    """, (
+        plan_limpio.get("url_portal", ""),
+        plan_limpio.get("plataforma_origen", ""),
+        plan_limpio.get("plataforma_destino", ""),
+        plan_limpio.get("objetivo", ""),
+        json.dumps(plan_limpio, ensure_ascii=False),
+        now,
+        usuario_id,
+    ))
     plan_id = cur.lastrowid
-    for campo in plan.get("mapeo_campos", []):
+    for campo in plan_limpio.get("mapeo_campos", []):
         p = campo.get("confianza", 1.0)
         cur.execute("""
             INSERT INTO mapeos (url_portal,campo_origen,campo_destino,
                                 confianza_inicial,confianza_actual,fecha_creacion)
             VALUES (?,?,?,?,?,?)
-        """, (plan.get("url_portal",""), campo.get("campo_origen",""),
-              campo.get("campo_destino",""), p, p, now))
+        """, (
+            plan_limpio.get("url_portal", ""),
+            campo.get("campo_origen", ""),
+            campo.get("campo_destino", ""),
+            p, p, now,
+        ))
     conn.commit()
     conn.close()
     return plan_id
@@ -189,7 +209,10 @@ def guardar_plan(plan: dict, usuario_id: int = None) -> int:
 def cargar_plan_activo(url_portal: str) -> dict | None:
     conn = get_connection()
     cur  = conn.cursor()
-    cur.execute("SELECT plan_json FROM planes WHERE url_portal=? AND activo=1 ORDER BY id DESC LIMIT 1", (url_portal,))
+    cur.execute(
+        "SELECT plan_json FROM planes WHERE url_portal=? AND activo=1 ORDER BY id DESC LIMIT 1",
+        (url_portal,),
+    )
     row = cur.fetchone()
     conn.close()
     return json.loads(row["plan_json"]) if row else None
@@ -197,41 +220,59 @@ def cargar_plan_activo(url_portal: str) -> dict | None:
 
 # ─── Sesiones ─────────────────────────────────────────────────────────────────
 
-def guardar_sesion(plan: dict, resultados: list, email: str,
-                   duracion_seg: float = None, plan_id: int = None,
-                   usuario_id: int = None, empresa: str = None) -> int:
+def guardar_sesion(
+    plan: dict,
+    resultados: list,
+    email: str,
+    duracion_seg: float = None,
+    plan_id: int = None,
+    usuario_id: int = None,
+    empresa: str = None,
+) -> int:
+    # CRÍTICO: nunca guardar credenciales en la DB
+    plan_limpio = _limpiar_credenciales(plan)
+
     conn = get_connection()
     cur  = conn.cursor()
     now  = datetime.now().isoformat()
     ok   = sum(1 for r in resultados if r.get("estado") == "ok")
     err  = sum(1 for r in resultados if r.get("estado") == "error")
     warn = sum(1 for r in resultados if r.get("estado") == "advertencia")
+
     cur.execute("""
         INSERT INTO sesiones (fecha,usuario_id,email_usuario,empresa,url_portal,
                               plataforma_origen,plataforma_destino,
                               n_pasos,n_exitosos,n_errores,n_advertencias,
                               duracion_seg,plan_id,resultado_json)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """, (now, usuario_id, email, empresa,
-          plan.get("url_portal",""), plan.get("plataforma_origen",""),
-          plan.get("plataforma_destino",""),
-          len(resultados), ok, err, warn,
-          duracion_seg, plan_id,
-          json.dumps(resultados, ensure_ascii=False)))
+    """, (
+        now, usuario_id, email, empresa,
+        plan_limpio.get("url_portal", ""),
+        plan_limpio.get("plataforma_origen", ""),
+        plan_limpio.get("plataforma_destino", ""),
+        len(resultados), ok, err, warn,
+        duracion_seg, plan_id,
+        json.dumps(resultados, ensure_ascii=False),
+    ))
     sesion_id = cur.lastrowid
     for r in resultados:
         if r.get("estado") != "ok":
             cur.execute("""
                 INSERT INTO errores (sesion_id,paso,accion,descripcion,fecha)
                 VALUES (?,?,?,?,?)
-            """, (sesion_id, r.get("paso"), r.get("accion",""),
-                  str(r.get("datos_extraidos","")), now))
+            """, (
+                sesion_id,
+                r.get("paso"),
+                r.get("accion", ""),
+                str(r.get("datos_extraidos", ""))[:500],
+                now,
+            ))
     conn.commit()
     conn.close()
     return sesion_id
 
 
-# ─── Analytics para dashboard Arca ───────────────────────────────────────────
+# ─── Analytics ────────────────────────────────────────────────────────────────
 
 def obtener_historial(limit: int = 50) -> list:
     conn = get_connection()
@@ -279,13 +320,13 @@ def obtener_estadisticas() -> dict:
     por_dia = [dict(r) for r in cur.fetchall()]
     conn.close()
     return {
-        "total_sesiones":    total,
-        "tasa_exito_pct":    round(tasa, 1),
-        "planes_activos":    n_planes,
-        "clientes_activos":  n_clientes,
-        "por_cliente":       por_cliente,
-        "errores_por_accion": errores_por_accion,
-        "por_dia":           por_dia,
+        "total_sesiones":      total,
+        "tasa_exito_pct":      round(tasa, 1),
+        "planes_activos":      n_planes,
+        "clientes_activos":    n_clientes,
+        "por_cliente":         por_cliente,
+        "errores_por_accion":  errores_por_accion,
+        "por_dia":             por_dia,
     }
 
 

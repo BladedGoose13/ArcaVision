@@ -15,7 +15,7 @@ load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent))
 
 from grabador.grabador import Grabador
-from cerebro.procesar import procesar_sesion
+from brain.procesar import procesar_sesion_cli, SESIONES_DIR
 from browser_agent.agent import ejecutar
 
 
@@ -26,7 +26,7 @@ def pedir_credenciales(plan: dict) -> dict:
         return credenciales
     print("\n🔑 El agente necesita estos datos para ejecutar:")
     for item in necesarias:
-        es_pass = any(w in item.lower() for w in ["password","contraseña","clave","pass"])
+        es_pass = any(w in item.lower() for w in ["password", "contraseña", "clave", "pass"])
         if es_pass:
             import getpass
             valor = getpass.getpass(f"  {item}: ")
@@ -37,10 +37,10 @@ def pedir_credenciales(plan: dict) -> dict:
 
 
 async def main():
-    print("\n" + "═"*55)
+    print("\n" + "═" * 55)
     print("  ⚡  ArcFast — Arca Continental")
     print("  Automatización de órdenes de compra")
-    print("═"*55)
+    print("═" * 55)
     print()
     print("  Opciones:")
     print("  1. Grabar proceso nuevo")
@@ -61,7 +61,8 @@ async def main():
         input()  # esperar ENTER para detener
         sesion = g.detener()
 
-        plan = procesar_sesion(sesion["eventos"], sesion["audio_path"])
+        # procesar_sesion_cli usa input() para preguntas — modo CLI exclusivo
+        plan = await procesar_sesion_cli(sesion["eventos"], sesion["audio_path"])
 
         print("\n¿Quieres ejecutar el proceso ahora? (s/n): ", end="")
         if input().strip().lower() != "s":
@@ -69,27 +70,31 @@ async def main():
             return
 
     elif opcion == "2":
-        plan_path = Path("sesiones/plan.json")
+        plan_path = SESIONES_DIR / "plan.json"
         if not plan_path.exists():
             print("  ❌ No hay plan guardado. Graba primero (opción 1).")
             return
         with open(plan_path, encoding="utf-8") as f:
             plan = json.load(f)
         print(f"\n  📋 Plan cargado: {plan.get('objetivo')}")
-        print(f"     Origen → Destino: {plan.get('plataforma_origen')} → {plan.get('plataforma_destino')}")
+        print(f"     {plan.get('plataforma_origen')} → {plan.get('plataforma_destino')}")
         print(f"     Pasos: {len(plan.get('pasos', []))}")
 
     elif opcion == "3":
         try:
             from database.db import obtener_historial, obtener_estadisticas
             stats = obtener_estadisticas()
-            print(f"\n  📊 Estadísticas generales:")
+            print(f"\n  📊 Estadísticas:")
             print(f"     Sesiones totales : {stats['total_sesiones']}")
             print(f"     Tasa de éxito    : {stats['tasa_exito_pct']}%")
             print(f"     Planes activos   : {stats['planes_activos']}")
             print(f"\n  📋 Últimas 10 sesiones:")
             for s in obtener_historial(10):
-                print(f"     {s['fecha'][:16]}  {s.get('plataforma_origen','?')} → {s.get('plataforma_destino','?')}  {s['n_exitosos']}/{s['n_pasos']} ok")
+                print(
+                    f"     {s['fecha'][:16]}  "
+                    f"{s.get('plataforma_origen','?')} → {s.get('plataforma_destino','?')}  "
+                    f"{s['n_exitosos']}/{s['n_pasos']} ok"
+                )
         except Exception as e:
             print(f"  ❌ Error leyendo SQLite: {e}")
         return
@@ -106,16 +111,15 @@ async def main():
     ok = sum(1 for r in resultados if r["estado"] == "ok")
     print(f"\n  ✅ Completado: {ok}/{len(resultados)} pasos exitosos")
 
-    # Guardar historial Excel
     try:
         from postprocessing.reporte import agregar_al_historial_excel
         from datetime import datetime
         agregar_al_historial_excel({
-            "objetivo": plan.get("objetivo",""),
-            "origen":   plan.get("plataforma_origen",""),
-            "destino":  plan.get("plataforma_destino",""),
+            "objetivo":   plan.get("objetivo", ""),
+            "origen":     plan.get("plataforma_origen", ""),
+            "destino":    plan.get("plataforma_destino", ""),
             "resultados": resultados,
-            "fecha":    datetime.now().isoformat(),
+            "fecha":      datetime.now().isoformat(),
         })
         print("  📊 Historial Excel actualizado: reportes/historial_arca.xlsx")
     except Exception as e:

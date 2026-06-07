@@ -3,12 +3,18 @@ browser_agent/agent.py
 -----------------------
 Agente principal usando browser_use — más robusto que Playwright puro.
 Fallback a Playwright+Vision si browser_use no está disponible.
+
+Fixes:
+  - Sin asyncio.run() interno — el caller es responsable del event loop
+  - Credenciales nunca se loguean ni guardan en el reporte JSON en disco
+  - Timeout configurable via env AGENT_TIMEOUT_STEPS
 """
+
+from __future__ import annotations
 
 import asyncio
 import json
 import os
-import hashlib
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -20,23 +26,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+MAX_STEPS = int(os.getenv("AGENT_TIMEOUT_STEPS", "50"))
+
 
 # ─── Motor principal: browser_use ────────────────────────────────────────────
 
 async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
-    """
-    Ejecuta el plan con browser_use — el agente razona y navega solo,
-    sin pasos ni coordenadas fijas. Mucho más robusto que Playwright manual.
-    """
     from browser_use import Agent
     from langchain_anthropic import ChatAnthropic
 
     todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
-    origen  = plan.get("plataforma_origen", "")
-    destino = plan.get("plataforma_destino", "")
+    origen   = plan.get("plataforma_origen", "")
+    destino  = plan.get("plataforma_destino", "")
     objetivo = plan.get("objetivo", "Ejecutar el proceso aprendido")
 
-    creds_texto = "\n".join([f"- {k}: {v}" for k, v in todas.items() if v])
+    # Nunca loguear credenciales
+    creds_texto = "\n".join([f"- {k}: [PROTEGIDO]" if any(w in k.lower() for w in ["pass","clave","secret","token"]) else f"- {k}: {v}" for k, v in todas.items() if v])
+
     mapeo = plan.get("mapeo_campos", [])
     mapeo_texto = "\n".join([
         f"- '{m['campo_origen']}' en {origen} → '{m['campo_destino']}' en {destino}"
@@ -45,7 +51,7 @@ async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte
 
     pasos_texto = "\n".join([
         f"{p['numero']}. [{p['accion'].upper()}] {p['intencion']}"
-        + (f" → valor: {p['valor']}" if p.get('valor') else "")
+        + (f" → valor: {p['valor']}" if p.get("valor") else "")
         for p in plan.get("pasos", [])
     ])
 
@@ -81,15 +87,12 @@ Al finalizar, resume en JSON qué hiciste y qué datos extrajiste.
     print(f"\n🤖 browser_use ejecutando: {objetivo}")
     print(f"   Sistemas: {origen} → {destino}\n")
 
-    llm = ChatAnthropic(
-        model="claude-opus-4-5",
-        api_key=os.getenv("ANTHROPIC_API_KEY")
-    )
+    llm = ChatAnthropic(model="claude-opus-4-5")   # lee ANTHROPIC_API_KEY del env
 
     agent = Agent(task=task, llm=llm)
 
     try:
-        result = await agent.run(max_steps=50)
+        result = await agent.run(max_steps=MAX_STEPS)
         resultado_texto = str(result)
         print(f"\n✅ browser_use completó el proceso")
         print(f"   {resultado_texto[:200]}...")
@@ -99,14 +102,14 @@ Al finalizar, resume en JSON qué hiciste y qué datos extrajiste.
         print(f"\n❌ Error en browser_use: {e}")
         estado = "error"
 
-    # Guardar reporte JSON
+    # Reporte sin credenciales
     reporte = {
-        "objetivo":          objetivo,
-        "plataforma_origen": origen,
+        "objetivo":           objetivo,
+        "plataforma_origen":  origen,
         "plataforma_destino": destino,
-        "resultado":         resultado_texto,
-        "fecha":             datetime.now().isoformat(),
-        "motor":             "browser_use",
+        "resultado":          resultado_texto,
+        "fecha":              datetime.now().isoformat(),
+        "motor":              "browser_use",
     }
     Path("sesiones").mkdir(exist_ok=True)
     with open("sesiones/reporte.json", "w", encoding="utf-8") as f:
@@ -119,17 +122,13 @@ Al finalizar, resume en JSON qué hiciste y qué datos extrajiste.
 # ─── Fallback: Playwright + Vision ────────────────────────────────────────────
 
 async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte: str) -> list:
-    """
-    Fallback cuando browser_use no está instalado.
-    Playwright paso a paso con Claude Vision para localizar elementos.
-    """
     import base64
     from io import BytesIO
     from PIL import Image
     from playwright.async_api import async_playwright
-    from anthropic import Anthropic
+    from anthropic import AsyncAnthropic
 
-    client = Anthropic()
+    client = AsyncAnthropic()
 
     async def analizar_pagina(page, intencion: str) -> dict:
         screenshot = await page.screenshot()
@@ -150,30 +149,31 @@ async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte:
             return JSON.stringify(els.slice(0,25));
         }""")
 
-        resp = client.messages.create(
+        resp = await client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=200,
             messages=[{"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": sc_b64}},
-                {"type": "text", "text": f"Elementos: {html}\nTarea: {intencion}\nResponde SOLO JSON: {{\"encontrado\":bool,\"x\":int,\"y\":int,\"confianza\":float}}"}
-            ]}]
+                {"type": "text", "text": f"Elementos: {html}\nTarea: {intencion}\nResponde SOLO JSON: {{\"encontrado\":bool,\"x\":int,\"y\":int,\"confianza\":float}}"},
+            ]}],
         )
-        raw = resp.content[0].text.strip()
-        if raw.startswith("```"): raw = raw.split("```")[1].lstrip("json").strip()
-        return json.loads(raw)
+        from brain.procesar import _extraer_json
+        return _extraer_json(resp.content[0].text)
 
     resultados = []
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
         page = await browser.new_page(viewport={"width": 1280, "height": 720})
 
+        todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
+
         for paso in plan.get("pasos", []):
-            accion   = paso["accion"]
+            accion    = paso["accion"]
             intencion = paso["intencion"]
-            valor    = paso.get("valor", "")
-            todas    = {**credenciales, **plan.get("credenciales_obtenidas", {})}
+            valor     = paso.get("valor", "")
             for k, v in todas.items():
-                if isinstance(v, str): valor = valor.replace(f"{{{k}}}", v)
+                if isinstance(v, str):
+                    valor = valor.replace(f"{{{k}}}", v)
 
             res = {"paso": paso["numero"], "accion": accion, "estado": "error"}
             try:
@@ -207,7 +207,7 @@ async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte:
             except Exception as e:
                 print(f"    ❌ Paso {paso['numero']}: {e}")
 
-            icono = "✅" if res["estado"]=="ok" else "⚠️ " if res["estado"]=="advertencia" else "❌"
+            icono = "✅" if res["estado"] == "ok" else "⚠️ " if res["estado"] == "advertencia" else "❌"
             print(f"  {icono} Paso {paso['numero']}: {intencion[:65]}")
             resultados.append(res)
 
@@ -223,13 +223,8 @@ async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte:
 # ─── Entry point ─────────────────────────────────────────────────────────────
 
 async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
-    """
-    Intenta browser_use primero. Si no está instalado, usa Playwright+Vision.
-    Después genera reporte, Excel, guarda en SQLite y envía email.
-    """
     print(f"\n🤖 Ejecutando: {plan.get('objetivo')}")
 
-    # Intentar browser_use
     try:
         import browser_use  # noqa
         resultados = await ejecutar_con_browser_use(plan, credenciales, email_reporte)
@@ -241,10 +236,9 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
 
     ok = sum(1 for r in resultados if r["estado"] == "ok")
     print(f"\n{'─'*50}")
-    print(f"  Motor   : {motor}")
+    print(f"  Motor    : {motor}")
     print(f"  Resultado: {ok}/{len(resultados)} pasos exitosos")
 
-    # Post-procesamiento
     datos_extraidos = {
         f"paso_{r['paso']}": r["datos_extraidos"]
         for r in resultados if r.get("datos_extraidos")
@@ -267,12 +261,12 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
     try:
         from postprocessing.reporte import generar_excel, generar_ticket_html, guardar_ticket
         datos_reporte = {
-            "objetivo":  plan.get("objetivo", "Proceso"),
-            "origen":    plan.get("plataforma_origen", ""),
-            "destino":   plan.get("plataforma_destino", ""),
-            "resultados": resultados,
+            "objetivo":        plan.get("objetivo", "Proceso"),
+            "origen":          plan.get("plataforma_origen", ""),
+            "destino":         plan.get("plataforma_destino", ""),
+            "resultados":      resultados,
             "datos_extraidos": datos_extraidos,
-            "fecha":     datetime.now().isoformat(),
+            "fecha":           datetime.now().isoformat(),
         }
         excel_path  = generar_excel(datos_reporte)
         ticket_html = generar_ticket_html(datos_reporte)
@@ -284,18 +278,22 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
         ticket_path = None
         print(f"  ⚠️  Reportes no generados: {e}")
 
-    # Email
     _enviar_email(email_reporte, plan, resultados, datos_extraidos, excel_path)
 
     return resultados
 
 
-def _enviar_email(destinatario: str, plan: dict, resultados: list,
-                  datos: dict, excel_path: str = None):
+def _enviar_email(
+    destinatario: str,
+    plan: dict,
+    resultados: list,
+    datos: dict,
+    excel_path: str = None,
+):
     remitente = os.getenv("EMAIL_REMITENTE", "")
     password  = os.getenv("EMAIL_PASSWORD", "")
     if not remitente or not password or not destinatario:
-        print(f"  📄 Email desactivado — agrega EMAIL_REMITENTE y EMAIL_PASSWORD al .env")
+        print("  📄 Email desactivado — agrega EMAIL_REMITENTE y EMAIL_PASSWORD al .env")
         return
 
     ok    = sum(1 for r in resultados if r["estado"] == "ok")
