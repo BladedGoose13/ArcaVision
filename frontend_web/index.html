@@ -21,32 +21,67 @@
 body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);min-height:100vh;font-size:15px;line-height:1.6}
 
 /* ── LOGIN ── */
-.login-screen{display:flex;min-height:100vh}
-.login-left{width:420px;background:var(--g900);display:flex;flex-direction:column;justify-content:space-between;padding:48px;flex-shrink:0}
-.login-logo{display:flex;flex-direction:column;gap:8px}
-.login-logotype{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:var(--white);line-height:1}
-.login-logosub{font-size:12px;color:var(--g500);text-transform:uppercase;letter-spacing:1.5px}
-.login-tagline{font-size:14px;color:var(--g500);line-height:1.7;border-left:2px solid var(--red);padding-left:16px}
-.login-right{flex:1;display:flex;align-items:center;justify-content:center;padding:48px;background:var(--cream)}
-.login-box{width:100%;max-width:440px;display:flex;flex-direction:column;gap:32px}
-.login-title{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:2px;color:var(--g900)}
-.role-selector{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.role-btn{padding:20px 16px;border:2px solid var(--g100);border-radius:var(--rl);background:var(--white);cursor:pointer;text-align:left;transition:all .15s;display:flex;flex-direction:column;gap:6px}
-.role-btn:hover{border-color:var(--red)}
-.role-btn.selected{border-color:var(--red);background:#FFF5F6}
-.role-btn .role-icon{font-size:22px}
-.role-btn .role-name{font-weight:600;font-size:14px;color:var(--g900)}
-.role-btn .role-desc{font-size:12px;color:var(--g500)}
-.form-group{display:flex;flex-direction:column;gap:6px}
-.form-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--g500)}
-.form-input{padding:11px 14px;border:1.5px solid var(--g100);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--g900);background:var(--white);outline:none;transition:border-color .15s}
-.form-input:focus{border-color:var(--red)}
+.login-screen{display:flex;min-height:100vh;background:#0f0d0c}
+
+/* Hero left — full bleed visual */
+.login-hero{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:56px 52px;min-height:100vh}
+.login-hero-bg{position:absolute;inset:0;background:linear-gradient(135deg,#1a0508 0%,#2d0a10 35%,#6B3A2A 70%,#C8102E 100%);z-index:0}
+.login-hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(200,16,46,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(200,16,46,.06) 1px,transparent 1px);background-size:48px 48px;z-index:1}
+.login-hero-glow{position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(200,16,46,.35) 0%,transparent 70%);top:-100px;right:-100px;z-index:2;animation:glow-pulse 4s ease-in-out infinite}
+@keyframes glow-pulse{0%,100%{transform:scale(1);opacity:.7}50%{transform:scale(1.15);opacity:1}}
+.login-hero-glow2{position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(107,58,42,.4) 0%,transparent 70%);bottom:-80px;left:-60px;z-index:2;animation:glow-pulse 6s ease-in-out infinite reverse}
+.login-hero-content{position:relative;z-index:3}
+.login-ac-logo{display:flex;align-items:center;gap:14px;margin-bottom:48px}
+.login-ac-emblem{width:52px;height:52px;background:var(--red);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:24px;color:white;letter-spacing:1px;box-shadow:0 4px 20px rgba(200,16,46,.5)}
+.login-ac-name{display:flex;flex-direction:column;line-height:1.1}
+.login-ac-main{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:3px;color:white}
+.login-ac-sub{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:2px}
+.login-hero-title{font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:4px;color:white;line-height:.95;margin-bottom:24px}
+.login-hero-title span{color:var(--red)}
+.login-hero-desc{font-size:15px;color:rgba(255,255,255,.55);line-height:1.7;max-width:380px;border-left:3px solid rgba(200,16,46,.5);padding-left:18px}
+.login-hero-stats{display:flex;gap:32px;margin-top:40px}
+.hero-stat{display:flex;flex-direction:column;gap:2px}
+.hero-stat-num{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:white;line-height:1}
+.hero-stat-label{font-size:11px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:1px}
+
+/* Right panel */
+.login-panel{width:480px;background:white;display:flex;flex-direction:column;justify-content:center;padding:56px 48px;flex-shrink:0;position:relative;overflow:hidden}
+.login-panel::before{content:'';position:absolute;top:-120px;right:-120px;width:300px;height:300px;border-radius:50%;background:rgba(200,16,46,.04);pointer-events:none}
+.login-panel-title{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:2px;color:var(--g900);margin-bottom:4px}
+.login-panel-sub{font-size:13px;color:var(--g500);margin-bottom:32px}
+
+/* Role cards */
+.role-selector{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px}
+.role-btn{padding:0;border:2px solid var(--g100);border-radius:12px;background:var(--white);cursor:pointer;text-align:left;transition:all .2s;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.role-btn-header{padding:18px 18px 14px;display:flex;flex-direction:column;gap:8px}
+.role-btn-footer{padding:8px 18px 14px;font-size:11px;color:var(--g500);border-top:1px solid var(--g100);transition:all .2s}
+.role-btn:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:0 8px 24px rgba(200,16,46,.12)}
+.role-btn.selected{border-color:var(--red);box-shadow:0 0 0 3px rgba(200,16,46,.12)}
+.role-btn.selected .role-btn-footer{background:#FFF5F6;border-color:rgba(200,16,46,.15);color:var(--red)}
+.role-icon-wrap{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--g50);transition:all .2s}
+.role-btn.selected .role-icon-wrap{background:#FDECEA}
+.role-btn-name{font-weight:700;font-size:14px;color:var(--g900);line-height:1.2}
+.role-btn-company{font-size:11px;color:var(--g500)}
+.role-check{position:absolute;top:10px;right:10px;width:18px;height:18px;border-radius:50%;background:var(--red);display:none;align-items:center;justify-content:center;color:white;font-size:10px}
+.role-btn.selected .role-check{display:flex}
+
+/* Form */
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.form-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--g500)}
+.form-input-wrap{position:relative}
+.form-input{width:100%;padding:12px 14px;border:1.5px solid var(--g100);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--g900);background:var(--g50);outline:none;transition:all .15s}
+.form-input:focus{border-color:var(--red);background:white;box-shadow:0 0 0 3px rgba(200,16,46,.08)}
 .form-input::placeholder{color:var(--g300)}
-.btn-login{width:100%;padding:13px;background:var(--red);color:white;border:none;border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .15s;letter-spacing:.3px}
-.btn-login:hover{background:var(--red-d);transform:translateY(-1px);box-shadow:0 4px 16px rgba(200,16,46,.3)}
-.login-footer{font-size:12px;color:var(--g500);text-align:center}
-.login-footer a{color:var(--red);cursor:pointer;text-decoration:none}
-.login-error{background:#FDECEA;color:#8a0f20;border-left:3px solid var(--red);padding:10px 14px;border-radius:var(--r);font-size:13px;display:none}
+.btn-login{width:100%;padding:14px;background:var(--red);color:white;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.3px;margin-top:4px;position:relative;overflow:hidden}
+.btn-login::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent);pointer-events:none}
+.btn-login:hover{background:var(--red-d);transform:translateY(-1px);box-shadow:0 6px 20px rgba(200,16,46,.35)}
+.btn-login:active{transform:translateY(0)}
+.login-footer{font-size:12px;color:var(--g500);text-align:center;margin-top:20px}
+.login-footer a{color:var(--red);cursor:pointer;text-decoration:none;font-weight:500}
+.login-error{background:#FDECEA;color:#8a0f20;border-left:3px solid var(--red);padding:10px 14px;border-radius:8px;font-size:13px;display:none;margin-bottom:8px}
+.login-divider{display:flex;align-items:center;gap:12px;margin:4px 0}
+.login-divider-line{flex:1;height:1px;background:var(--g100)}
+.login-divider-text{font-size:11px;color:var(--g300);text-transform:uppercase;letter-spacing:.5px}
 
 /* ── REGISTER ── */
 .register-form{display:none;flex-direction:column;gap:16px}
@@ -84,11 +119,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
 .sidebar input,.sidebar select{width:100%;padding:9px 12px;border:1.5px solid var(--g100);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--g900);background:var(--g50);outline:none;transition:border-color .15s}
 .sidebar input:focus,.sidebar select:focus{border-color:var(--red);background:var(--white)}
 .sidebar input::placeholder{color:var(--g300)}
-.slider-wrap{display:flex;flex-direction:column;gap:6px}
-.slider-row{display:flex;justify-content:space-between;font-size:12px;color:var(--g500)}
-.slider-val{font-weight:600;color:var(--red)}
-input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--g100);outline:none;cursor:pointer}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--red);cursor:pointer;box-shadow:0 1px 4px rgba(200,16,46,.3)}
+/* slider removed — umbral fijo en 0.70 */
 .btn-reset{width:100%;padding:9px;border:1.5px solid var(--g100);border-radius:var(--r);background:transparent;color:var(--g500);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;margin-top:auto}
 .btn-reset:hover{border-color:var(--red);color:var(--red)}
 
@@ -217,87 +248,110 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 
 <!-- ══════════════ LOGIN ══════════════ -->
 <div class="login-screen" id="login-screen">
-  <div class="login-left">
-    <div class="login-logo">
-      <div class="login-logotype">ArcFast</div>
-      <div class="login-logosub">Arca Continental · Automatización</div>
-    </div>
-    <div class="login-tagline">
-      El agente aprende de ti.<br>
-      Luego trabaja por ti.
+  <!-- Hero izquierdo -->
+  <div class="login-hero">
+    <div class="login-hero-bg"></div>
+    <div class="login-hero-grid"></div>
+    <div class="login-hero-glow"></div>
+    <div class="login-hero-glow2"></div>
+    <div class="login-hero-content">
+      <div class="login-ac-logo">
+        <div class="login-ac-emblem">AC</div>
+        <div class="login-ac-name">
+          <span class="login-ac-main">ARCA CONTINENTAL</span>
+          <span class="login-ac-sub">Plataforma de Automatización</span>
+        </div>
+      </div>
+      <div class="login-hero-title">ARC<span>FAST</span><br>AGENT</div>
+      <div class="login-hero-desc">
+        Observa tu proceso una vez.<br>
+        Aprende el mapeo sin reglas fijas.<br>
+        Ejecuta autónomamente con nuevos datos.
+      </div>
+      <div class="login-hero-stats">
+        <div class="hero-stat"><div class="hero-stat-num">100%</div><div class="hero-stat-label">Sin hardcoding</div></div>
+        <div class="hero-stat"><div class="hero-stat-num">IA</div><div class="hero-stat-label">Vision + Audio</div></div>
+        <div class="hero-stat"><div class="hero-stat-num">0</div><div class="hero-stat-label">Reglas manuales</div></div>
+      </div>
     </div>
   </div>
-  <div class="login-right">
+
+  <!-- Panel derecho -->
+  <div class="login-panel">
     <!-- LOGIN FORM -->
-    <div class="login-box" id="login-box">
-      <div>
-        <div class="login-title">Bienvenido</div>
-        <div style="font-size:14px;color:var(--g500);margin-top:4px">Selecciona tu portal e inicia sesión</div>
-      </div>
+    <div id="login-box">
+      <div class="login-panel-title">Bienvenido</div>
+      <div class="login-panel-sub">Selecciona tu portal e inicia sesión</div>
 
       <div class="role-selector" id="role-selector">
         <button class="role-btn selected" onclick="selectRole('arca',this)">
-          <div class="role-icon">🏢</div>
-          <div class="role-name">Arca Continental</div>
-          <div class="role-desc">Dashboard ejecutivo y analytics</div>
+          <div class="role-check">✓</div>
+          <div class="role-btn-header">
+            <div class="role-icon-wrap">🏢</div>
+            <div>
+              <div class="role-btn-name">Arca Continental</div>
+              <div class="role-btn-company">Empleados internos</div>
+            </div>
+          </div>
+          <div class="role-btn-footer">Dashboard ejecutivo y analytics</div>
         </button>
         <button class="role-btn" onclick="selectRole('cliente',this)">
-          <div class="role-icon">🛒</div>
-          <div class="role-name">Cliente</div>
-          <div class="role-desc">Automatización de órdenes</div>
+          <div class="role-check">✓</div>
+          <div class="role-btn-header">
+            <div class="role-icon-wrap">🛒</div>
+            <div>
+              <div class="role-btn-name">Cliente</div>
+              <div class="role-btn-company">Walmart, Soriana, Chedraui…</div>
+            </div>
+          </div>
+          <div class="role-btn-footer">Automatización de órdenes</div>
         </button>
       </div>
 
       <div class="login-error" id="login-error"></div>
 
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input class="form-input" type="email" id="login-email" placeholder="usuario@empresa.com" onkeydown="if(event.key==='Enter')doLogin()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Contraseña</label>
-          <input class="form-input" type="password" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
-        </div>
-        <button class="btn-login" onclick="doLogin()">Iniciar sesión</button>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="login-email" placeholder="usuario@empresa.com" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input class="form-input" type="password" id="login-pwd" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="btn-login" onclick="doLogin()">Iniciar sesión →</button>
 
       <div class="login-footer">
-        ¿No tienes cuenta? <a onclick="showRegister()">Regístrate</a>
+        ¿No tienes cuenta? <a onclick="showRegister()">Regístrate aquí</a>
       </div>
     </div>
 
     <!-- REGISTER FORM -->
-    <div class="login-box" id="register-box" style="display:none">
-      <div>
-        <div class="login-title">Crear cuenta</div>
-        <div style="font-size:14px;color:var(--g500);margin-top:4px">Nuevo usuario de ArcFast</div>
-      </div>
+    <div id="register-box" style="display:none">
+      <div class="login-panel-title">Crear cuenta</div>
+      <div class="login-panel-sub">Nuevo usuario de ArcFast</div>
 
       <div class="login-error" id="reg-error"></div>
 
-      <div style="display:flex;flex-direction:column;gap:14px">
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input class="form-input" type="email" id="reg-email" placeholder="usuario@empresa.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Empresa</label>
-          <input class="form-input" type="text" id="reg-empresa" placeholder="Walmart México">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Rol</label>
-          <select class="form-input" id="reg-rol">
-            <option value="cliente">Cliente</option>
-            <option value="arca">Arca Continental</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Contraseña</label>
-          <input class="form-input" type="password" id="reg-pwd" placeholder="Mínimo 6 caracteres">
-        </div>
-        <button class="btn-login" onclick="doRegister()">Crear cuenta</button>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="reg-email" placeholder="usuario@empresa.com">
       </div>
+      <div class="form-group">
+        <label class="form-label">Empresa</label>
+        <input class="form-input" type="text" id="reg-empresa" placeholder="Walmart México">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Rol</label>
+        <select class="form-input" id="reg-rol">
+          <option value="cliente">Cliente</option>
+          <option value="arca">Arca Continental</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Contraseña</label>
+        <input class="form-input" type="password" id="reg-pwd" placeholder="Mínimo 6 caracteres">
+      </div>
+      <button class="btn-login" onclick="doRegister()">Crear cuenta →</button>
 
       <div class="login-footer">
         ¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a>
@@ -344,16 +398,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="layout">
       <aside class="sidebar">
         <div>
-          <div class="sidebar-label" style="margin-bottom:8px">Configuración</div>
+          <div class="sidebar-label" style="margin-bottom:8px">Portal objetivo</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <input type="url" id="inp-url" placeholder="https://portal.walmart.com.mx">
-          </div>
-        </div>
-        <div>
-          <div class="sidebar-label" style="margin-bottom:8px">Umbral de confianza</div>
-          <div class="slider-wrap">
-            <div class="slider-row"><span>0.50</span><span class="slider-val" id="umbral-val">0.70</span><span>0.95</span></div>
-            <input type="range" id="umbral" min="50" max="95" value="70" step="5" oninput="document.getElementById('umbral-val').textContent='0.'+this.value">
           </div>
         </div>
         <button class="btn-reset" onclick="resetCliente()">↺ Reiniciar</button>
@@ -590,7 +637,7 @@ function goTo(etapa) {
   window.scrollTo(0,0);
 }
 
-function getUmbral() { return parseInt(document.getElementById('umbral').value)/100; }
+function getUmbral() { return 0.70; }
 function getUrl()    { return document.getElementById('inp-url').value; }
 
 // ══ GRABACIÓN ══
