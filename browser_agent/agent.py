@@ -1,15 +1,16 @@
 """
 browser_agent/agent.py
 -----------------------
-Agente principal usando browser_use — más robusto que Playwright puro.
-Fallback a Playwright+Vision si browser_use no está disponible.
+Agente principal usando browser_use exclusivamente.
+Corre en un thread separado con su propio event loop para evitar
+el NotImplementedError de asyncio en Windows con uvicorn.
 """
 
 import asyncio
+import concurrent.futures
 import json
 import os
 import re
-import hashlib
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -22,12 +23,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-# ─── Motor principal: browser_use ────────────────────────────────────────────
-
-async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
+def _run_browser_use_sync(task: str, api_key: str) -> str:
+    """
+    Ejecuta browser_use Agent en un thread con su propio event loop.
+    asyncio.run() crea un ProactorEventLoop en Windows, que sí soporta
+    subprocesos — evita el NotImplementedError de SelectorEventLoop.
+    """
     from browser_use import Agent
     from langchain_anthropic import ChatAnthropic
 
+    async def _inner():
+        llm   = ChatAnthropic(model="claude-opus-4-5", api_key=api_key)
+        agent = Agent(task=task, llm=llm)
+        result = await agent.run(max_steps=50)
+        return str(result)
+
+    return asyncio.run(_inner())
+
+
+async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
     todas   = {**credenciales, **plan.get("credenciales_obtenidas", {})}
     origen  = plan.get("plataforma_origen", "")
     destino = plan.get("plataforma_destino", "")
@@ -71,16 +85,15 @@ Al finalizar resume en JSON qué hiciste y qué datos extrajiste."""
     print(f"\n🤖 browser_use ejecutando: {objetivo}")
     print(f"   Sistemas: {origen} → {destino}\n")
 
-    # Exactamente igual que el original que funcionaba — sin Browser/BrowserConfig
-    # para no interferir con el event loop de playwright
-    llm   = ChatAnthropic(model="claude-opus-4-5", api_key=os.getenv("ANTHROPIC_API_KEY"))
-    agent = Agent(task=task, llm=llm)
-
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
     estado = "error"
     resultado_texto = ""
     try:
-        result          = await agent.run(max_steps=50)
-        resultado_texto = str(result)
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            resultado_texto = await loop.run_in_executor(
+                pool, _run_browser_use_sync, task, api_key
+            )
         print(f"\n✅ browser_use completó el proceso")
         print(f"   {resultado_texto[:200]}...")
         estado = "ok"
@@ -108,7 +121,6 @@ Al finalizar resume en JSON qué hiciste y qué datos extrajiste."""
     if not datos_extraidos and resultado_texto:
         datos_extraidos = {"resumen": resultado_texto[:500]}
 
-    # Retornar pasos reales del plan con el estado del agente
     pasos = plan.get("pasos", [])
     if not pasos:
         return [{"paso": 1, "accion": "browser_use", "estado": estado,
@@ -127,135 +139,17 @@ Al finalizar resume en JSON qué hiciste y qué datos extrajiste."""
     return resultados
 
 
-# ─── Fallback: Playwright + Vision ────────────────────────────────────────────
-
-async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte: str) -> list:
-    """
-    Fallback cuando browser_use no está instalado.
-    Playwright paso a paso con Claude Vision para localizar elementos.
-    """
-    import base64
-    from io import BytesIO
-    from PIL import Image
-    from playwright.async_api import async_playwright
-    from anthropic import Anthropic
-
-    client = Anthropic()
-
-    async def analizar_pagina(page, intencion: str) -> dict:
-        screenshot = await page.screenshot()
-        img = Image.open(BytesIO(screenshot))
-        img.thumbnail((1280, 720))
-        buf = BytesIO()
-        img.save(buf, format="JPEG", quality=75)
-        sc_b64 = base64.b64encode(buf.getvalue()).decode()
-
-        html = await page.evaluate("""() => {
-            const els = [];
-            document.querySelectorAll('input,button,a,select,textarea,[role="button"]').forEach((el,i) => {
-                const r = el.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0)
-                    els.push({tag:el.tagName.toLowerCase(),texto:(el.textContent||el.value||el.placeholder||'').trim().slice(0,40),
-                              nombre:el.name||el.id||'',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)});
-            });
-            return JSON.stringify(els.slice(0,25));
-        }""")
-
-        resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=200,
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": sc_b64}},
-                {"type": "text", "text": f"Elementos: {html}\nTarea: {intencion}\nResponde SOLO JSON: {{\"encontrado\":bool,\"x\":int,\"y\":int,\"confianza\":float}}"}
-            ]}]
-        )
-        raw = resp.content[0].text.strip()
-        if raw.startswith("```"): raw = raw.split("```")[1].lstrip("json").strip()
-        return json.loads(raw)
-
-    resultados = []
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
-        try:
-            page = await browser.new_page(viewport={"width": 1280, "height": 720})
-            todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
-
-            for paso in plan.get("pasos", []):
-                accion    = paso["accion"]
-                intencion = paso["intencion"]
-                valor     = paso.get("valor", "")
-                for k, v in todas.items():
-                    if isinstance(v, str):
-                        valor = valor.replace(f"{{{k}}}", v)
-
-                res = {"paso": paso["numero"], "accion": accion, "estado": "error"}
-                try:
-                    if accion == "navegar":
-                        await page.goto(valor, wait_until="domcontentloaded", timeout=15000)
-                        await page.wait_for_timeout(1500)
-                        res["estado"] = "ok"
-                    elif accion in ("click", "escribir", "seleccionar"):
-                        loc = await analizar_pagina(page, intencion)
-                        if loc.get("encontrado") and loc.get("confianza", 0) >= 0.5:
-                            x, y = loc["x"], loc["y"]
-                            if accion == "click":
-                                await page.mouse.click(x, y)
-                            elif accion == "escribir":
-                                await page.mouse.click(x, y)
-                                await page.keyboard.press("Control+a")
-                                await page.keyboard.type(valor, delay=40)
-                            res["estado"] = "ok"
-                        else:
-                            res["estado"] = "advertencia"
-                    elif accion == "extraer":
-                        texto = await page.evaluate("() => document.body.innerText.substring(0,2000)")
-                        res["datos_extraidos"] = texto
-                        res["estado"] = "ok"
-                    elif accion == "esperar":
-                        await page.wait_for_timeout(int(valor or 1) * 1000)
-                        res["estado"] = "ok"
-                    elif accion == "verificar":
-                        loc = await analizar_pagina(page, intencion)
-                        res["estado"] = "ok" if loc.get("encontrado") else "advertencia"
-                except Exception as e:
-                    print(f"    ❌ Paso {paso['numero']}: {e}")
-
-                icono = "✅" if res["estado"] == "ok" else "⚠️ " if res["estado"] == "advertencia" else "❌"
-                print(f"  {icono} Paso {paso['numero']}: {intencion[:65]}")
-                resultados.append(res)
-
-                if res["estado"] == "error" and paso["numero"] <= 2:
-                    print("  🚨 Error crítico — abortando")
-                    break
-        finally:
-            await browser.close()
-            print("  🔒 Browser cerrado")
-
-    return resultados
-
-
 # ─── Entry point ─────────────────────────────────────────────────────────────
 
 async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
     """
-    Intenta browser_use primero. Si no está instalado, usa Playwright+Vision.
-    Después genera reporte, Excel, guarda en SQLite y envía email.
+    Ejecuta el plan usando browser_use y luego genera reportes, guarda en SQLite
+    y envía email.
     """
     print(f"\n🤖 Ejecutando: {plan.get('objetivo')}")
 
-    # Intentar browser_use; fallback a Playwright si no está o falla al iniciar
-    try:
-        import browser_use  # noqa
-        resultados = await ejecutar_con_browser_use(plan, credenciales, email_reporte)
-        motor = "browser_use"
-    except ImportError:
-        print("  ℹ️  browser_use no instalado — usando Playwright+Vision")
-        resultados = await ejecutar_con_playwright(plan, credenciales, email_reporte)
-        motor = "playwright"
-    except Exception as e:
-        print(f"  ⚠️  browser_use falló ({e}) — usando Playwright+Vision como fallback")
-        resultados = await ejecutar_con_playwright(plan, credenciales, email_reporte)
-        motor = "playwright"
+    resultados = await ejecutar_con_browser_use(plan, credenciales, email_reporte)
+    motor = "browser_use"
 
     ok = sum(1 for r in resultados if r["estado"] == "ok")
     print(f"\n{'─'*50}")
@@ -281,6 +175,7 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
         print(f"  ⚠️  SQLite no disponible: {e}")
 
     # Generar los tres reportes: Excel compras, PDF IA, Excel errores
+    rutas = {}
     try:
         from postprocessing.reporte import generar_todos_los_reportes, generar_ticket_html, guardar_ticket
         datos_reporte = {
@@ -301,7 +196,6 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
         print(f"  📄 PDF reporte IA: {rutas.get('pdf_reporte')}")
         print(f"  📊 Excel errores : {rutas.get('excel_errores')}")
     except Exception as e:
-        rutas = {}
         print(f"  ⚠️  Reportes no generados: {e}")
 
     # Email
