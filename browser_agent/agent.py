@@ -246,8 +246,8 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
 
     # Post-procesamiento
     datos_extraidos = {
-        f"paso_{r['paso']}": r["datos_extraidos"]
-        for r in resultados if r.get("datos_extraidos")
+        f"paso_{r.get('paso', i)}": r["datos_extraidos"]
+        for i, r in enumerate(resultados) if r.get("datos_extraidos")
     }
 
     # Guardar en SQLite

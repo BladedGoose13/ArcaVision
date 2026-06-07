@@ -111,8 +111,10 @@ def auth_register(req: RegisterReq):
 def grabar_iniciar(req: IniciarGrabacionReq):
     from browser_agent.grabador import Grabador
     if session["grabador"]:
-        try: session["grabador"].detener()
-        except: pass
+        try:
+            session["grabador"].detener()
+        except Exception as e:
+            print(f"  ⚠️  Error deteniendo grabador anterior: {e}")
 
     g = Grabador()
     g.iniciar()
@@ -133,7 +135,8 @@ def grabar_pausar():
     try:
         g.mouse_listener.stop()
         g.keyboard_listener.stop()
-    except: pass
+    except Exception as e:
+        print(f"  ⚠️  Error pausando listeners: {e}")
     return {"ok": True}
 
 
@@ -154,8 +157,10 @@ def grabar_continuar():
 def grabar_reiniciar(req: IniciarGrabacionReq):
     from browser_agent.grabador import Grabador
     if session["grabador"]:
-        try: session["grabador"].detener()
-        except: pass
+        try:
+            session["grabador"].detener()
+        except Exception as e:
+            print(f"  ⚠️  Error deteniendo grabador anterior: {e}")
     g = Grabador()
     g.iniciar()
     session["grabador"]   = g

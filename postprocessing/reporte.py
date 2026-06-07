@@ -110,7 +110,7 @@ def generar_excel(datos: dict, output_path: str = "reportes/reporte_arcfast.xlsx
                     s.get("n_errores", 0),
                     f"{s.get('duracion_seg', 0):.1f}s" if s.get("duracion_seg") else "—",
                 ])
-            for col_dim in ["A","B","C","D","E"]:
+            for col_dim in ["A","B","C","D","E","F","G","H","I"]:
                 ws2.column_dimensions[col_dim].width = 22
     except Exception as e:
         print(f"  ⚠️  Historial SQLite no disponible: {e}")

@@ -51,41 +51,30 @@ def extraer_con_gemini(pdf_path: str, result: AgentResult) -> dict:
 
 def registrar_en_solana(datos: dict) -> str:
     """
-    Genera un hash SHA-256 de los datos y lo registra en Solana
-    como audit trail inmutable de la orden.
-
-    Returns: transaction hash de Solana
-
-    TODO Persona 3: integrar solana-py SDK
+    Genera un hash SHA-256 local. Pendiente: enviar a Solana devnet via solana-py.
+    Returns: hash SHA-256 del payload (mock hasta integración real)
     """
-    import hashlib, json
-    payload = json.dumps(datos, sort_keys=True).encode()
+    import hashlib
+    import json as _json
+    payload = _json.dumps(datos, sort_keys=True).encode()
     local_hash = hashlib.sha256(payload).hexdigest()
-    # TODO: enviar local_hash a Solana devnet via solana-py
+    print(f"  [Solana] Hash generado localmente (sin enviar): {local_hash[:16]}...")
     return local_hash
 
 
 def guardar_en_mongo(datos: dict, solana_hash: str) -> str:
     """
-    Guarda la orden en MongoDB. Colección separada del ERP de Arca
-    para no interferir con su formato interno.
-
-    Returns: _id del documento insertado
-
-    TODO Persona 3: conectar con pymongo
+    Pendiente: conectar con pymongo para persistencia real.
+    Returns: _id del documento (mock hasta integración real)
     """
-    documento = {**datos, "solana_hash": solana_hash}
-    # TODO: client["arcfast"]["ordenes"].insert_one(documento)
+    print(f"  [MongoDB] Guardado pendiente de integración. Datos: {list(datos.keys())}")
     return "mock_mongo_id_abc123"
 
 
 def enviar_email(user_email: str, solana_hash: str, mongo_id: str):
     """
-    Envía el reporte al email del usuario registrado.
-    Adjunta el PDF y linkea al dashboard.
-
-    TODO Persona 3: SendGrid o smtplib
+    Pendiente: integrar SendGrid o smtplib para envío real.
     """
-    print(f"[EMAIL] Enviando reporte a {user_email}")
-    print(f"  Solana hash: {solana_hash}")
-    print(f"  MongoDB ID:  {mongo_id}")
+    print(f"  [Email] Envío pendiente de integración → {user_email}")
+    print(f"    Solana hash: {solana_hash}")
+    print(f"    MongoDB ID:  {mongo_id}")

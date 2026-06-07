@@ -406,7 +406,7 @@ elif st.session_state.etapa == "resultado":
             }.get(val, "")
 
         st.dataframe(
-            df.style.applymap(color_estado, subset=["Estado"]),
+            df.style.map(color_estado, subset=["Estado"]),
             use_container_width=True, hide_index=True,
         )
 

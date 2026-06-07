@@ -8,6 +8,7 @@ Para migrar a producción: cambiar get_connection().
 import sqlite3
 import json
 import os
+from typing import Optional
 import hashlib
 import secrets
 from datetime import datetime
@@ -125,7 +126,7 @@ def init_db():
 
 # ─── Auth ─────────────────────────────────────────────────────────────────────
 
-def login(email: str, password: str) -> dict | None:
+def login(email: str, password: str) -> Optional[dict]:
     conn = get_connection()
     cur  = conn.cursor()
     cur.execute("SELECT * FROM usuarios WHERE email=? AND activo=1", (email,))
@@ -186,7 +187,7 @@ def guardar_plan(plan: dict, usuario_id: int = None) -> int:
     return plan_id
 
 
-def cargar_plan_activo(url_portal: str) -> dict | None:
+def cargar_plan_activo(url_portal: str) -> Optional[dict]:
     conn = get_connection()
     cur  = conn.cursor()
     cur.execute("SELECT plan_json FROM planes WHERE url_portal=? AND activo=1 ORDER BY id DESC LIMIT 1", (url_portal,))

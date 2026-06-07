@@ -6,6 +6,7 @@ Modo web:  uvicorn backend.api:app --reload --port 8000
 """
 
 import asyncio
+import getpass
 import json
 import sys
 from pathlib import Path
@@ -28,7 +29,6 @@ def pedir_credenciales(plan: dict) -> dict:
     for item in necesarias:
         es_pass = any(w in item.lower() for w in ["password","contraseña","clave","pass"])
         if es_pass:
-            import getpass
             valor = getpass.getpass(f"  {item}: ")
         else:
             valor = input(f"  {item}: ").strip()
