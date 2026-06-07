@@ -843,27 +843,39 @@ let selectedRole = 'arca';
 let state = { grabando:false, pausado:false, faseA:null, plan:null, planConf:null, resultados:null };
 
 // ══ VOZ (ElevenLabs TTS) ══
+const VOZ_ID = '9cySrnzVAcRAUGO8JQtx';
 let vozActiva = true;
 let vozDisponible = false;
 let _audioActual = null;
 let _colaVoz = Promise.resolve();   // serializa las narraciones para que no se solapen
 
-fetch(`${API}/tts/disponible`).then(r=>r.json()).then(d=>{ vozDisponible = !!d.disponible; }).catch(()=>{});
+// Detecta si ElevenLabs está activo en el backend
+fetch(`${API}/tts/disponible`)
+  .then(r=>r.json())
+  .then(d=>{
+    vozDisponible = !!d.disponible;
+    const b = document.getElementById('btn-voz-toggle');
+    if (b) { b.style.opacity = vozDisponible ? '1' : '0.4'; b.title = vozDisponible ? 'Voz activa' : 'Voz no configurada (ELEVENLABS_API_KEY)'; }
+  }).catch(()=>{});
 
 function hablar(texto, {esperar=false}={}) {
   if (!vozActiva || !vozDisponible || !texto) return Promise.resolve();
   const tarea = () => fetch(`${API}/tts`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({texto})
+      body:JSON.stringify({texto, voz: VOZ_ID})
     })
-    .then(res => res.ok ? res.blob() : Promise.reject())
+    .then(res => {
+      if (!res.ok) return res.json().then(e=>{ console.warn('[TTS]', e.error); return Promise.reject(); });
+      return res.blob();
+    })
     .then(blob => new Promise(resolve => {
-      if (_audioActual) { try{_audioActual.pause();}catch(e){} }
-      _audioActual = new Audio(URL.createObjectURL(blob));
-      _audioActual.onended = resolve;
-      _audioActual.onerror = resolve;
+      if (_audioActual) { try{_audioActual.pause(); URL.revokeObjectURL(_audioActual.src);}catch(e){} }
+      const url = URL.createObjectURL(blob);
+      _audioActual = new Audio(url);
+      _audioActual.onended = () => { URL.revokeObjectURL(url); resolve(); };
+      _audioActual.onerror = () => { URL.revokeObjectURL(url); resolve(); };
       _audioActual.play().catch(resolve);
-      if (!esperar) resolve();   // no bloquear si solo es narración de fondo
+      if (!esperar) resolve();
     }))
     .catch(()=>{});
   _colaVoz = _colaVoz.then(tarea);
@@ -872,6 +884,7 @@ function hablar(texto, {esperar=false}={}) {
 
 function detenerVoz() {
   if (_audioActual) { try{_audioActual.pause();}catch(e){} _audioActual=null; }
+  _colaVoz = Promise.resolve();   // vacía la cola para no narrar mensajes viejos
 }
 
 function toggleVoz() {
@@ -881,14 +894,48 @@ function toggleVoz() {
   if (b) { b.textContent = vozActiva ? '🔊 Voz' : '🔇 Voz'; b.style.color = vozActiva ? '' : 'var(--g500)'; }
 }
 
+// ── Puntos de narración a lo largo del flujo ──────────────────────────────────
+
 function narrarPreguntas() {
-  if (!state.faseA || !(state.faseA.preguntas||[]).length) {
-    hablar('No tengo preguntas, ya aprendí todo lo necesario para ejecutar el proceso.');
-    return;
+  const preguntas = (state.faseA||{}).preguntas||[];
+  if (!preguntas.length) {
+    hablar('No tengo preguntas. Ya aprendí todo lo necesario para ejecutar el proceso.'); return;
   }
-  const texto = 'Necesito que me confirmes lo siguiente. ' +
-    state.faseA.preguntas.map((p,i)=>`Pregunta ${i+1}: ${p.pregunta}`).join('. ');
-  hablar(texto, {esperar:true});
+  const intro = preguntas.length === 1
+    ? 'Tengo una pregunta antes de ejecutar.'
+    : `Tengo ${preguntas.length} preguntas antes de ejecutar.`;
+  const cuerpo = preguntas.map((p,i)=>`Pregunta ${i+1}: ${p.pregunta}`).join('. ');
+  hablar(`${intro} ${cuerpo}`, {esperar:true});
+}
+
+function narrarBienvenida(email) {
+  const nombre = email ? email.split('@')[0] : 'equipo';
+  hablar(`Bienvenido, ${nombre}. Soy ArcaVision, listo para automatizar tu proceso.`);
+}
+
+function narrarAnalisis() {
+  hablar('Grabación completada. Analizando el proceso con inteligencia artificial. Un momento.');
+}
+
+function narrarRevision(plan) {
+  const nPasos = (plan.pasos||[]).length, nCampos = (plan.mapeo_campos||[]).length;
+  hablar(`Plan aprendido. Detecté ${nPasos} pasos y ${nCampos} campos mapeados. Revisa que todo esté correcto antes de ejecutar.`);
+}
+
+function narrarEjecucionLista() {
+  hablar('Plan confirmado. Iniciando ejecución autónoma del proceso.');
+}
+
+function narrarResultado(resultados) {
+  const ok  = (resultados||[]).filter(r=>r.estado==='ok').length;
+  const tot = (resultados||[]).length;
+  const err = tot - ok;
+  if (ok === tot)
+    hablar(`Proceso completado con éxito. Los ${tot} pasos fueron ejecutados correctamente.`);
+  else if (ok > 0)
+    hablar(`Proceso terminado. ${ok} de ${tot} pasos exitosos. ${err} pasos requieren revisión.`);
+  else
+    hablar('El proceso no pudo completarse. Revisa los errores en el reporte.');
 }
 
 // ══ LOGIN ══
@@ -978,6 +1025,7 @@ function showRegister() {
 }
 
 function enterApp() {
+  narrarBienvenida(user.email);
   document.getElementById('login-screen').style.display = 'none';
   const shell = document.getElementById('app-shell');
   shell.style.display = 'flex';
@@ -1073,6 +1121,7 @@ async function terminarGrabacion() {
   document.getElementById('record-icon').textContent='⏳';
   document.getElementById('record-title').textContent='Analizando con Claude...';
   document.getElementById('record-sub').textContent='Espera mientras el agente procesa tu grabación.';
+  narrarAnalisis();
   try {
     const res  = await fetch(`${API}/grabar/terminar`,{method:'POST'});
     const data = await res.json();
@@ -1083,6 +1132,7 @@ async function terminarGrabacion() {
       const r2  = await fetch(`${API}/completar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({respuestas:{}})});
       const plan = await r2.json();
       state.plan = plan; renderRevision(plan); goTo('revision');
+      narrarRevision(plan);
     }
   } catch(e) { showToast('Error: '+e.message,'error'); resetRecordUI(); }
 }
@@ -1126,6 +1176,7 @@ async function confirmarRespuestas() {
   const res=await fetch(`${API}/completar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({respuestas})});
   const plan=await res.json();
   state.plan=plan; renderRevision(plan); goTo('revision');
+  narrarRevision(plan);
 }
 
 // ══ REVISIÓN ══
@@ -1155,6 +1206,7 @@ function confirmarRevision() {
   const plan=state.plan, umbral=getUmbral();
   plan.mapeo_campos=(plan.mapeo_campos||[]).map((c,i)=>({campo_origen:document.getElementById(`mo_${i}`)?.value||c.campo_origen,campo_destino:document.getElementById(`md_${i}`)?.value||c.campo_destino,confianza:c.confianza,flag:(c.confianza||1)<umbral}));
   state.planConf=plan; renderEjecucion(plan); goTo('ejecucion');
+  narrarEjecucionLista();
 }
 
 // ══ EJECUCIÓN ══
@@ -1190,8 +1242,7 @@ async function ejecutarAgente() {
     clearInterval(tick);
     const data=await res.json();
     state.resultados=data.resultados; renderAprobacion(data.resultados); goTo('aprobacion');
-    const ok=(data.resultados||[]).filter(r=>r.estado==='ok').length, tot=(data.resultados||[]).length;
-    hablar(`Proceso terminado. Completé ${ok} de ${tot} pasos correctamente.`);
+    narrarResultado(data.resultados);
   } catch(e) { clearInterval(tick); showToast('Error: '+e.message,'error'); document.getElementById('ejecucion-spinner').style.display='none'; }
 }
 
@@ -1211,22 +1262,44 @@ function renderResultado(res,plan) {
   const ok=res.filter(r=>r.estado==='ok').length, err=res.filter(r=>r.estado!=='ok').length;
   document.getElementById('resultado-summary').textContent=`✓ Completado: ${ok}/${res.length} pasos exitosos · ${plan.plataforma_origen} → ${plan.plataforma_destino}`;
   document.getElementById('resultado-metrics').innerHTML=`<div class="metric-card"><div class="metric-label">Exitosos</div><div class="metric-value green">${ok}</div></div><div class="metric-card"><div class="metric-label">Errores</div><div class="metric-value red">${err}</div></div><div class="metric-card"><div class="metric-label">Origen</div><div class="metric-value" style="font-size:14px;font-family:'DM Sans'">${plan.plataforma_origen||'—'}</div></div><div class="metric-card"><div class="metric-label">Destino</div><div class="metric-value" style="font-size:14px;font-family:'DM Sans'">${plan.plataforma_destino||'—'}</div></div>`;
-  renderMC(err); renderErrChart(res);
+  renderMC(err, res.length); renderErrChart(res);
   document.getElementById('err-tbody').innerHTML=res.map(r=>{const badge=r.estado==='ok'?'badge-ok':r.estado==='advertencia'?'badge-warn':'badge-error';return`<tr><td>${r.paso}</td><td><code style="font-size:12px;background:var(--g50);padding:2px 6px;border-radius:3px">${r.accion}</code></td><td><span class="badge ${badge}">${r.estado}</span></td></tr>`}).join('');
 }
 
-function renderMC(nErr) {
-  const hist=[15800,18420,22100,17300,19800,16500,21000,18900];
-  const mu=hist.reduce((a,b)=>a+b,0)/hist.length, sig=Math.sqrt(hist.reduce((s,v)=>s+(v-mu)**2,0)/hist.length);
-  const ratio=nErr/Math.max(hist.length,1), N=5000;
-  const samp=Array.from({length:N},()=>Math.abs(mu*ratio+sig*ratio*(Array.from({length:6},()=>Math.random()*4-2).reduce((a,b)=>a+b)/6*Math.SQRT2))).sort((a,b)=>a-b);
+// Gaussiana estándar (Box-Muller) para generar datos sintéticos realistas
+function _gauss(){ let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function renderMC(nErr, totalPasos) {
+  // ── Dataset histórico SINTÉTICO de valores de orden (MXN), lognormal ──
+  // media ~ $9,000 con dispersión realista; 60 órdenes de referencia
+  const hist=Array.from({length:60},()=>Math.max(1200,Math.round(Math.exp(Math.log(9000)+0.45*_gauss()))));
+  const muV=hist.reduce((a,b)=>a+b,0)/hist.length;
+
+  // ── Tasa de error con suavizado de Jeffreys (nunca 0, refleja la corrida) ──
+  // Aunque la ejecución sea perfecta, queda una probabilidad residual de fallo
+  const total=Math.max(totalPasos||8,1);
+  const pErr=(nErr+0.5)/(total+1);
+
+  // ── Simulación Monte Carlo: impacto económico MENSUAL por errores de captura ──
+  // Cada mes se procesan ~120 órdenes; cada una falla con prob. pErr y su valor se pierde.
+  // La suma sobre muchas órdenes produce una distribución acampanada (TLC) → IC 95% real.
+  const ordersMes=120, N=5000;
+  const samp=Array.from({length:N},()=>{
+    let imp=0;
+    for(let k=0;k<ordersMes;k++){ if(Math.random()<pErr) imp+=hist[(Math.random()*hist.length)|0]; }
+    return imp;
+  }).sort((a,b)=>a-b);
+
   const mean=samp.reduce((a,b)=>a+b,0)/N, icL=samp[Math.floor(.025*N)], icH=samp[Math.floor(.975*N)];
-  document.getElementById('mc-metrics').innerHTML=`<div class="metric-card"><div class="metric-label">Impacto medio</div><div class="metric-value red">$${Math.round(mean).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% inferior</div><div class="metric-value" style="font-size:22px">$${Math.round(icL).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% superior</div><div class="metric-value" style="font-size:22px">$${Math.round(icH).toLocaleString()}</div><div class="metric-label">MXN</div></div>`;
-  document.getElementById('mc-caption').textContent=`Monte Carlo N=${N.toLocaleString()} · IC 95% · ${hist.length} órdenes históricas`;
-  const mn=samp[0],mx=samp[N-1],counts=Array(40).fill(0);
-  samp.forEach(s=>counts[Math.min(39,Math.floor((s-mn)/(mx-mn+1)*40))]++);
-  const xs=counts.map((_,i)=>mn+(i/40)*(mx-mn));
-  Plotly.newPlot('chart-mc',[{x:xs.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),y:counts.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),type:'bar',marker:{color:'rgba(200,16,46,0.15)'},hoverinfo:'skip'},{x:xs,y:counts,type:'bar',marker:{color:'rgba(200,16,46,0.7)'}},{x:[mean,mean],y:[0,Math.max(...counts)],type:'scatter',mode:'lines',line:{color:'#C8102E',width:2,dash:'dash'}}],{showlegend:false,paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:10,b:36,l:46,r:10},xaxis:{title:'Impacto (MXN)',tickformat:'$,.0f',gridcolor:'#EEEBE6'},yaxis:{title:'Frecuencia',gridcolor:'#EEEBE6'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'},barmode:'overlay'},{responsive:true,displayModeBar:false});
+  document.getElementById('mc-metrics').innerHTML=`<div class="metric-card"><div class="metric-label">Impacto medio / mes</div><div class="metric-value red">$${Math.round(mean).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% inferior</div><div class="metric-value" style="font-size:22px">$${Math.round(icL).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% superior</div><div class="metric-value" style="font-size:22px">$${Math.round(icH).toLocaleString()}</div><div class="metric-label">MXN</div></div>`;
+  document.getElementById('mc-caption').textContent=`Monte Carlo N=${N.toLocaleString()} · IC 95% · ${ordersMes} órdenes/mes · tasa de error estimada ${(pErr*100).toFixed(1)}% · valor medio orden $${Math.round(muV).toLocaleString()}`;
+
+  // ── Histograma con banda IC 95% sombreada ──
+  const mn=samp[0],mx=samp[N-1],rango=Math.max(mx-mn,1),counts=Array(40).fill(0);
+  samp.forEach(s=>counts[Math.min(39,Math.floor((s-mn)/rango*40))]++);
+  const xs=counts.map((_,i)=>mn+(i/40)*rango);
+  Plotly.newPlot('chart-mc',[{x:xs.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),y:counts.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),type:'bar',marker:{color:'rgba(200,16,46,0.15)'},hoverinfo:'skip'},{x:xs,y:counts,type:'bar',marker:{color:'rgba(200,16,46,0.7)'}},{x:[mean,mean],y:[0,Math.max(...counts)],type:'scatter',mode:'lines',line:{color:'#C8102E',width:2,dash:'dash'},name:'Media'}],{showlegend:false,paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:10,b:36,l:46,r:10},xaxis:{title:'Impacto mensual (MXN)',tickformat:'$,.0f',gridcolor:'#EEEBE6'},yaxis:{title:'Frecuencia',gridcolor:'#EEEBE6'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'},barmode:'overlay'},{responsive:true,displayModeBar:false});
 }
 
 function renderErrChart(res) {
