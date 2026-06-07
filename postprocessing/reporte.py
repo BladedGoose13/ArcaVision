@@ -1193,23 +1193,32 @@ def generar_ticket_html_premium(datos_pedido: dict, datos_reporte: dict) -> str:
 
 
 def enviar_ticket(datos_pedido: dict, datos_reporte: dict,
-                  email_cliente: str, excel_path: str = None):
+                  email_cliente: str, excel_path: str = None) -> str:
     """
     Envía el ticket premium por email con el Excel adjunto.
     Siempre guarda el HTML localmente aunque el email falle.
-    """
-    remitente = os.getenv("EMAIL_REMITENTE", "")
-    password  = os.getenv("EMAIL_PASSWORD", "")
 
-    html      = generar_ticket_html_premium(datos_pedido, datos_reporte)
+    Requiere en .env:
+      EMAIL_REMITENTE=tu_cuenta@gmail.com
+      EMAIL_PASSWORD=xxxx xxxx xxxx xxxx   ← App Password de Gmail (16 chars)
+
+    El ticket se envía a `email_cliente` (el email del usuario que inicia sesión).
+    """
+    remitente = os.getenv("EMAIL_REMITENTE", "").strip()
+    password  = os.getenv("EMAIL_PASSWORD",  "").strip()
+
+    html        = generar_ticket_html_premium(datos_pedido, datos_reporte)
     ticket_path = "reportes/ticket.html"
     Path("reportes").mkdir(exist_ok=True)
     with open(ticket_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"  🎫 Ticket HTML: {ticket_path}")
+    print(f"  🎫 Ticket HTML guardado: {ticket_path}")
 
-    if not remitente or not password or not email_cliente:
-        print("  ℹ️  Email no configurado — ticket guardado localmente")
+    if not remitente or not password:
+        print("  ℹ️  EMAIL_REMITENTE / EMAIL_PASSWORD no configurados — solo guardado local")
+        return ticket_path
+    if not email_cliente:
+        print("  ℹ️  Sin email de cliente — solo guardado local")
         return ticket_path
 
     fecha  = datetime.fromisoformat(
@@ -1218,29 +1227,42 @@ def enviar_ticket(datos_pedido: dict, datos_reporte: dict,
     total  = datos_pedido.get("total", 0)
     n_prod = len(datos_pedido.get("productos", []))
 
+    # Estructura correcta: multipart/mixed con alternative interior para HTML
     msg = MIMEMultipart("mixed")
     msg["From"]    = remitente
     msg["To"]      = email_cliente
-    msg["Subject"] = f"✅ Pedido Arca Continental — {fecha} — {n_prod} producto(s) — ${total:,.2f}"
-    msg.attach(MIMEText(html, "html"))
+    msg["Subject"] = (f"✅ Pedido Arca Continental — {fecha} — "
+                      f"{n_prod} producto(s) — ${total:,.2f}")
+
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(html, "html", "utf-8"))
+    msg.attach(alt)
 
     if excel_path and Path(excel_path).exists():
         with open(excel_path, "rb") as f:
             part = MIMEBase("application", "octet-stream")
             part.set_payload(f.read())
             encoders.encode_base64(part)
+            fecha_safe = fecha[:10].replace("/", "-")
             part.add_header("Content-Disposition",
-                            f"attachment; filename=pedido_arca_{fecha[:10]}.xlsx")
+                            f"attachment; filename=pedido_arca_{fecha_safe}.xlsx")
             msg.attach(part)
 
+    enviado = False
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
             server.login(remitente, password)
             server.sendmail(remitente, email_cliente, msg.as_string())
         print(f"  📧 Ticket enviado a {email_cliente}")
+        enviado = True
+    except smtplib.SMTPAuthenticationError:
+        print("  ❌ Email: autenticación fallida — verifica EMAIL_PASSWORD (usa App Password de Gmail, no tu contraseña normal)")
+    except smtplib.SMTPException as e:
+        print(f"  ❌ Email SMTP: {e}")
     except Exception as e:
         print(f"  ⚠️  Email no enviado: {e}")
 
+    datos_pedido["ticket_enviado"] = enviado
     return ticket_path
 
 
@@ -1301,14 +1323,16 @@ def procesar_ticket_completo(datos_reporte: dict,
       4. Sube a Google Sheets (si está configurado)
       5. Genera y envía ticket HTML por email con Excel adjunto
     """
-    # ── Texto libre del agente (para extracción regex) ────────────────────────
-    resultado_texto = ""
+    # ── Texto libre del agente para extracción regex ──────────────────────────
+    # Incluye el resumen final del agente + todos los datos_extraidos por paso
+    partes = []
     for r in datos_reporte.get("resultados", []):
         ext = r.get("datos_extraidos")
         if isinstance(ext, dict):
-            resultado_texto += str(ext.get("resumen", ""))
+            partes.append(str(ext.get("resumen", "")) + " " + str(ext))
         elif ext:
-            resultado_texto += str(ext)
+            partes.append(str(ext))
+    resultado_texto = " ".join(partes)
 
     datos_pedido = extraer_datos_pedido(resultado_texto, datos_reporte)
 
@@ -1332,8 +1356,5 @@ def procesar_ticket_completo(datos_reporte: dict,
 
     # ── Ticket email ──────────────────────────────────────────────────────────
     ticket_path = enviar_ticket(datos_pedido, datos_reporte, email_cliente, excel_path)
-
-    datos_pedido["ticket_enviado"] = bool(
-        os.getenv("EMAIL_REMITENTE") and os.getenv("EMAIL_PASSWORD") and email_cliente
-    )
+    # ticket_enviado is set inside enviar_ticket based on actual SMTP success
     return {"datos_pedido": datos_pedido, "ticket_path": ticket_path, "pedido_id": pedido_id}
