@@ -1176,7 +1176,6 @@ async function confirmarRespuestas() {
   const res=await fetch(`${API}/completar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({respuestas})});
   const plan=await res.json();
   state.plan=plan; renderRevision(plan); goTo('revision');
-  narrarRevision(plan);
 }
 
 // ══ REVISIÓN ══
@@ -1206,7 +1205,6 @@ function confirmarRevision() {
   const plan=state.plan, umbral=getUmbral();
   plan.mapeo_campos=(plan.mapeo_campos||[]).map((c,i)=>({campo_origen:document.getElementById(`mo_${i}`)?.value||c.campo_origen,campo_destino:document.getElementById(`md_${i}`)?.value||c.campo_destino,confianza:c.confianza,flag:(c.confianza||1)<umbral}));
   state.planConf=plan; renderEjecucion(plan); goTo('ejecucion');
-  narrarEjecucionLista();
 }
 
 // ══ EJECUCIÓN ══
@@ -1230,13 +1228,10 @@ async function iniciarEjecucion() {
 async function ejecutarAgente() {
   const msgs=['Iniciando el agente...','Abriendo el portal...','Navegando la plataforma...','Extrayendo datos...','Procesando resultados...'];
   let mi=0;
-  hablar(msgs[0]);
   const tick=setInterval(()=>{
-    const m=msgs[mi%msgs.length];
-    document.getElementById('spinner-text').textContent=m;
-    hablar(m);                       // la IA narra cada iteración
+    document.getElementById('spinner-text').textContent=msgs[mi%msgs.length];
     mi++;
-  },4000);
+  },2500);
   try {
     const res=await fetch(`${API}/ejecutar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:state.planConf,credenciales:state.credenciales||{},email:user?.email||''})});
     clearInterval(tick);
