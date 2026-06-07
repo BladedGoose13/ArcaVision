@@ -10,25 +10,52 @@ import asyncio
 import concurrent.futures
 import json
 import os
+import random
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# ─── Detección de agente trabado ──────────────────────────────────────────────
 
-def _run_browser_use_sync(task: str, api_key: str) -> dict:
+def _agente_trabado(info: dict) -> bool:
+    """True si el agente terminó sin completar nada útil."""
+    return (
+        not info.get("completado")
+        and info.get("pasos_ok", 0) == 0
+        and info.get("pasos_error", 0) >= 2
+    )
+
+
+def _run_browser_use_sync(task: str, api_key: str, modo_agresivo: bool = False) -> dict:
     """
     Ejecuta browser_use Agent en un thread con su propio event loop.
     Retorna dict con estado real extraído del AgentHistoryList.
+    modo_agresivo=True inyecta reglas estocásticas más fuertes para sacar al agente
+    de loops de scroll cuando el primer intento no avanzó.
     """
     from browser_use import Agent
     from langchain_anthropic import ChatAnthropic
 
+    task_final = task
+    if modo_agresivo:
+        # Prefijo de "modo forzado": instruye al modelo a comprometerse con clicks
+        # aunque tenga incertidumbre, imitando una política epsilon-greedy.
+        seed = random.randint(1000, 9999)   # rompe cualquier cache/memoria del LLM
+        task_final = f"""[MODO DECISIÓN FORZADA #{seed}]
+REGLA ÚNICA: En cada paso DEBES hacer click en el elemento más probable.
+- Prohibido scrollear más de 1 vez por paso.
+- Si ves el elemento o uno similar → click inmediato, sin verificar.
+- Si la página no cambió tras un click → siguiente paso.
+- Prefiere fallar en un click que no hacer nada.
+
+""" + task
+
     async def _inner():
         llm   = ChatAnthropic(model="claude-opus-4-5", api_key=api_key)
         agent = Agent(
-            task=task,
+            task=task_final,
             llm=llm,
             max_failures=2,
             use_vision=False,
@@ -68,6 +95,11 @@ def _run_browser_use_sync(task: str, api_key: str) -> dict:
         }
 
     return asyncio.run(_inner())
+
+
+def _run_browser_use_sync_agresivo(task: str, api_key: str) -> dict:
+    """Atajo para ThreadPoolExecutor (no admite kwargs)."""
+    return _run_browser_use_sync(task, api_key, modo_agresivo=True)
 
 
 async def _cerrar_browser(agent) -> None:
@@ -178,12 +210,16 @@ MAPEO DE CAMPOS:
 PASOS A EJECUTAR ({n_pasos} en total — guíate por la intención, no por coordenadas):
 {pasos_texto}
 
-CÓMO ACTUAR (decide rápido, no te trabes):
-1. Para interactuar usa el texto/label/placeholder del elemento en el índice del DOM. Si el elemento objetivo ya está en la lista, haz click directo — no scrollees "por si acaso".
-2. Solo scrollea si el siguiente paso requiere algo que claramente está más abajo y NO aparece en la lista actual. Un scroll por necesidad, nunca en bucle.
-3. Si una acción falla, no la repitas igual: prueba la alternativa más obvia una vez; si tampoco, marca el paso como fallido y avanza al siguiente.
-4. Si 2 pasos seguidos fallan, o aparece captcha/login inesperado, o la página no carga en ~10 s → TERMINA y reporta el motivo.
-5. Cuando completes todos los pasos → termina de inmediato. No navegues de más.
+CÓMO ACTUAR — PROTOCOLO DE DECISIÓN ESTOCÁSTICA:
+1. USA el texto/label/placeholder del elemento DOM. Si el objetivo aparece en la lista → click inmediato. No scrollees "por si acaso".
+2. CONTADOR DE SCROLL: lleva mentalmente la cuenta de scrolls consecutivos sin click.
+   - 1-2 scrolls seguidos → permitido si el elemento no estaba visible.
+   - 3 scrolls seguidos sin click → PARA. Elige el elemento más parecido al objetivo y haz click, aunque no estés seguro al 100%. Un click imperfecto vale más que 5 scrolls perfectos.
+   - 5+ scrolls en el mismo paso → el elemento no está en esta página. Avanza al siguiente paso.
+3. COMPROMISO FORZADO: si dudas entre dos elementos, elige el primero que contenga alguna palabra clave del paso actual y haz click sin más análisis.
+4. Si un click no cambia la página → no lo repitas. Prueba el siguiente elemento candidato una vez; si tampoco, avanza al siguiente paso.
+5. Si 2 pasos seguidos fallan, o aparece captcha/login inesperado, o la página no carga → TERMINA y reporta el motivo.
+6. Cuando completes todos los pasos → termina de inmediato.
 
 REGISTRO DE COMPRAS (crítico para el reporte):
 Cada vez que agregues un producto al carrito/orden, anota nombre exacto, precio unitario y cantidad.
@@ -211,11 +247,33 @@ Al finalizar (éxito o fallo) llama a la acción "done" con EXACTAMENTE este JSO
     reporte_agente = {}          # JSON auto-reportado por el agente (done action)
     errores_agente = []
     completado_agente = False
-    try:
+
+    async def _lanzar(fn_sync):
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = loop.run_in_executor(pool, _run_browser_use_sync, task, api_key)
-            info = await asyncio.wait_for(future, timeout=timeout_seg)
+            future = loop.run_in_executor(pool, fn_sync)
+            return await asyncio.wait_for(future, timeout=timeout_seg)
+
+    try:
+        # ── Intento 1: modo normal ────────────────────────────────────────────
+        import functools
+        info = await _lanzar(functools.partial(_run_browser_use_sync, task, api_key))
+
+        # ── Reintento estocástico si el agente se trabó (0 pasos útiles) ─────
+        if _agente_trabado(info):
+            print("\n🎲 Agente trabado — relanzando en modo decisión forzada...")
+            try:
+                info2 = await _lanzar(
+                    functools.partial(_run_browser_use_sync, task, api_key, True)
+                )
+                # Usa el reintento solo si mejoró
+                if info2.get("pasos_ok", 0) >= info.get("pasos_ok", 0):
+                    info = info2
+                    print("   Modo forzado produjo mejor resultado")
+                else:
+                    print("   Modo normal fue mejor — usando primer resultado")
+            except Exception as e2:
+                print(f"   Reintento forzado falló: {e2} — usando primer resultado")
 
         resultado_texto   = info.get("final", "")
         errores_agente    = info.get("errores", [])
