@@ -25,15 +25,16 @@ load_dotenv()
 
 async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
     """
-    Ejecuta el plan con browser_use — el agente razona y navega solo,
-    sin pasos ni coordenadas fijas. Mucho más robusto que Playwright manual.
+    Ejecuta el plan con browser_use. Cierra el browser al terminar y
+    retorna resultados estructurados para que el frontend avance a la
+    etapa de aprobación.
     """
-    from browser_use import Agent
+    from browser_use import Agent, Browser, BrowserConfig
     from langchain_anthropic import ChatAnthropic
 
     todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
-    origen  = plan.get("plataforma_origen", "")
-    destino = plan.get("plataforma_destino", "")
+    origen   = plan.get("plataforma_origen", "")
+    destino  = plan.get("plataforma_destino", "")
     objetivo = plan.get("objetivo", "Ejecutar el proceso aprendido")
 
     creds_texto = "\n".join([f"- {k}: {v}" for k, v in todas.items() if v])
@@ -58,24 +59,28 @@ SISTEMAS:
 - Origen: {origen}
 - Destino: {destino}
 
-CREDENCIALES:
+CREDENCIALES DISPONIBLES:
 {creds_texto if creds_texto else "Ninguna — infiere del contexto"}
 
 MAPEO DE CAMPOS:
 {mapeo_texto}
 
-PASOS APRENDIDOS (guíate por la intención, no por coordenadas):
+PASOS APRENDIDOS (guíate por la intención, no por coordenadas fijas):
 {pasos_texto}
 
 INSTRUCCIONES:
 1. Ejecuta el proceso completo de principio a fin
-2. Si un elemento no está visible, haz scroll
-3. Si algo falla, intenta una alternativa razonable
-4. Al terminar, extrae los datos más importantes del resultado
-5. NO pares hasta completar el objetivo o agotar opciones razonables
-6. Reporta cada acción importante
+2. Si un elemento no está visible, haz scroll antes de rendirte
+3. Si algo falla, intenta una alternativa razonable UNA VEZ más
+4. Al completar el último paso, extrae los datos más importantes del resultado
+5. TERMINA en cuanto el proceso esté completo — no sigas navegando después
+6. Reporta cada acción importante con su resultado
 
-Al finalizar, resume en JSON qué hiciste y qué datos extrajiste.
+CONDICIÓN DE ÉXITO: el proceso termina cuando hayas completado todos los pasos
+o cuando no sea posible avanzar más. En ambos casos, PARA y reporta el resultado.
+
+Al finalizar, responde con este JSON exacto:
+{{"completado": true, "pasos_ejecutados": N, "datos_extraidos": {{}}, "resumen": "..."}}
 """
 
     print(f"\n🤖 browser_use ejecutando: {objetivo}")
@@ -86,34 +91,64 @@ Al finalizar, resume en JSON qué hiciste y qué datos extrajiste.
         api_key=os.getenv("ANTHROPIC_API_KEY")
     )
 
-    agent = Agent(task=task, llm=llm)
+    # Crear browser con ciclo de vida controlado
+    browser = Browser(config=BrowserConfig(headless=False))
+    estado = "error"
+    resultado_texto = ""
 
     try:
-        result = await agent.run(max_steps=50)
+        agent = Agent(task=task, llm=llm, browser=browser)
+        result = await asyncio.wait_for(agent.run(max_steps=40), timeout=300)
         resultado_texto = str(result)
         print(f"\n✅ browser_use completó el proceso")
         print(f"   {resultado_texto[:200]}...")
         estado = "ok"
+    except asyncio.TimeoutError:
+        resultado_texto = "Timeout: el agente excedió 5 minutos de ejecución"
+        print(f"\n⏱️  Timeout en browser_use")
+        estado = "advertencia"
     except Exception as e:
         resultado_texto = f"Error: {e}"
         print(f"\n❌ Error en browser_use: {e}")
         estado = "error"
+    finally:
+        # Siempre cerrar el browser al terminar
+        try:
+            await browser.close()
+            print("  🔒 Browser cerrado")
+        except Exception:
+            pass
 
     # Guardar reporte JSON
     reporte = {
-        "objetivo":          objetivo,
-        "plataforma_origen": origen,
+        "objetivo":           objetivo,
+        "plataforma_origen":  origen,
         "plataforma_destino": destino,
-        "resultado":         resultado_texto,
-        "fecha":             datetime.now().isoformat(),
-        "motor":             "browser_use",
+        "resultado":          resultado_texto,
+        "fecha":              datetime.now().isoformat(),
+        "motor":              "browser_use",
     }
     Path("sesiones").mkdir(exist_ok=True)
     with open("sesiones/reporte.json", "w", encoding="utf-8") as f:
         json.dump(reporte, f, indent=2, ensure_ascii=False)
 
-    return [{"paso": 1, "accion": "browser_use", "estado": estado,
-             "datos_extraidos": resultado_texto}]
+    # Intentar parsear el JSON que el agente devuelve al final
+    datos_extraidos = {}
+    try:
+        import re
+        match = re.search(r'\{.*"completado".*\}', resultado_texto, re.DOTALL)
+        if match:
+            parsed = json.loads(match.group())
+            datos_extraidos = parsed.get("datos_extraidos", {})
+    except Exception:
+        pass
+
+    n_pasos = len(plan.get("pasos", [])) or 1
+    return [
+        {"paso": i + 1, "accion": "browser_use", "estado": estado,
+         "datos_extraidos": datos_extraidos if i == n_pasos - 1 else None}
+        for i in range(n_pasos)
+    ]
 
 
 # ─── Fallback: Playwright + Vision ────────────────────────────────────────────
@@ -165,57 +200,60 @@ async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte:
     resultados = []
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
-        page = await browser.new_page(viewport={"width": 1280, "height": 720})
+        try:
+            page = await browser.new_page(viewport={"width": 1280, "height": 720})
+            todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
 
-        for paso in plan.get("pasos", []):
-            accion   = paso["accion"]
-            intencion = paso["intencion"]
-            valor    = paso.get("valor", "")
-            todas    = {**credenciales, **plan.get("credenciales_obtenidas", {})}
-            for k, v in todas.items():
-                if isinstance(v, str): valor = valor.replace(f"{{{k}}}", v)
+            for paso in plan.get("pasos", []):
+                accion    = paso["accion"]
+                intencion = paso["intencion"]
+                valor     = paso.get("valor", "")
+                for k, v in todas.items():
+                    if isinstance(v, str):
+                        valor = valor.replace(f"{{{k}}}", v)
 
-            res = {"paso": paso["numero"], "accion": accion, "estado": "error"}
-            try:
-                if accion == "navegar":
-                    await page.goto(valor, wait_until="domcontentloaded", timeout=15000)
-                    await page.wait_for_timeout(1500)
-                    res["estado"] = "ok"
-                elif accion in ("click", "escribir", "seleccionar"):
-                    loc = await analizar_pagina(page, intencion)
-                    if loc.get("encontrado") and loc.get("confianza", 0) >= 0.5:
-                        x, y = loc["x"], loc["y"]
-                        if accion == "click":
-                            await page.mouse.click(x, y)
-                        elif accion == "escribir":
-                            await page.mouse.click(x, y)
-                            await page.keyboard.press("Control+a")
-                            await page.keyboard.type(valor, delay=40)
+                res = {"paso": paso["numero"], "accion": accion, "estado": "error"}
+                try:
+                    if accion == "navegar":
+                        await page.goto(valor, wait_until="domcontentloaded", timeout=15000)
+                        await page.wait_for_timeout(1500)
                         res["estado"] = "ok"
-                    else:
-                        res["estado"] = "advertencia"
-                elif accion == "extraer":
-                    texto = await page.evaluate("() => document.body.innerText.substring(0,2000)")
-                    res["datos_extraidos"] = texto
-                    res["estado"] = "ok"
-                elif accion == "esperar":
-                    await page.wait_for_timeout(int(valor or 1) * 1000)
-                    res["estado"] = "ok"
-                elif accion == "verificar":
-                    loc = await analizar_pagina(page, intencion)
-                    res["estado"] = "ok" if loc.get("encontrado") else "advertencia"
-            except Exception as e:
-                print(f"    ❌ Paso {paso['numero']}: {e}")
+                    elif accion in ("click", "escribir", "seleccionar"):
+                        loc = await analizar_pagina(page, intencion)
+                        if loc.get("encontrado") and loc.get("confianza", 0) >= 0.5:
+                            x, y = loc["x"], loc["y"]
+                            if accion == "click":
+                                await page.mouse.click(x, y)
+                            elif accion == "escribir":
+                                await page.mouse.click(x, y)
+                                await page.keyboard.press("Control+a")
+                                await page.keyboard.type(valor, delay=40)
+                            res["estado"] = "ok"
+                        else:
+                            res["estado"] = "advertencia"
+                    elif accion == "extraer":
+                        texto = await page.evaluate("() => document.body.innerText.substring(0,2000)")
+                        res["datos_extraidos"] = texto
+                        res["estado"] = "ok"
+                    elif accion == "esperar":
+                        await page.wait_for_timeout(int(valor or 1) * 1000)
+                        res["estado"] = "ok"
+                    elif accion == "verificar":
+                        loc = await analizar_pagina(page, intencion)
+                        res["estado"] = "ok" if loc.get("encontrado") else "advertencia"
+                except Exception as e:
+                    print(f"    ❌ Paso {paso['numero']}: {e}")
 
-            icono = "✅" if res["estado"]=="ok" else "⚠️ " if res["estado"]=="advertencia" else "❌"
-            print(f"  {icono} Paso {paso['numero']}: {intencion[:65]}")
-            resultados.append(res)
+                icono = "✅" if res["estado"] == "ok" else "⚠️ " if res["estado"] == "advertencia" else "❌"
+                print(f"  {icono} Paso {paso['numero']}: {intencion[:65]}")
+                resultados.append(res)
 
-            if res["estado"] == "error" and paso["numero"] <= 2:
-                print("  🚨 Error crítico — abortando")
-                break
-
-        await browser.close()
+                if res["estado"] == "error" and paso["numero"] <= 2:
+                    print("  🚨 Error crítico — abortando")
+                    break
+        finally:
+            await browser.close()
+            print("  🔒 Browser cerrado")
 
     return resultados
 

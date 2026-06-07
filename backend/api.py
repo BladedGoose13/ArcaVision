@@ -216,11 +216,10 @@ def completar(req: CompletarReq):
 
 # ─── Ejecutar agente ──────────────────────────────────────────────────────────
 @app.post("/ejecutar")
-def ejecutar_agente(req: EjecutarReq):
+async def ejecutar_agente(req: EjecutarReq):
     try:
         from browser_agent.agent import ejecutar
-        resultados = asyncio.run(ejecutar(req.plan, req.credenciales, req.email or ""))
-        # Guardar sesión en DB
+        resultados = await ejecutar(req.plan, req.credenciales, req.email or "")
         duracion = time.time() - (session.get("t_inicio") or time.time())
         guardar_sesion(
             plan=req.plan,
@@ -231,7 +230,8 @@ def ejecutar_agente(req: EjecutarReq):
         )
         return {"resultados": resultados, "ok": True}
     except Exception as e:
-        return {"error": f"Error en ejecución: {e}", "resultados": []}
+        print(f"  ❌ Error en /ejecutar: {e}")
+        return {"error": str(e), "resultados": [], "ok": False}
 
 
 # ─── Health check ─────────────────────────────────────────────────────────────
