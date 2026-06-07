@@ -60,51 +60,34 @@ PASOS (guíate por la intención, no por coordenadas):
 {pasos_texto}
 
 INSTRUCCIONES:
-1. Ejecuta el proceso completo de principio a fin en un browser visible
+1. Ejecuta el proceso completo de principio a fin
 2. Si un elemento no está visible, haz scroll antes de rendirte
-3. Si algo falla, intenta una alternativa razonable UNA VEZ más
-4. Al completar el último paso extrae los datos más importantes
+3. Si algo falla, intenta una alternativa razonable
+4. Al terminar, extrae los datos más importantes del resultado
 5. TERMINA cuando hayas completado todos los pasos o no puedas avanzar más
 
-Al finalizar responde con este JSON:
-{{"completado": true, "pasos_ejecutados": N, "datos_extraidos": {{}}, "resumen": "..."}}"""
+Al finalizar resume en JSON qué hiciste y qué datos extrajiste."""
 
     print(f"\n🤖 browser_use ejecutando: {objetivo}")
     print(f"   Sistemas: {origen} → {destino}\n")
 
-    llm = ChatAnthropic(model="claude-opus-4-5", api_key=os.getenv("ANTHROPIC_API_KEY"))
-
-    # Intentar con Browser explícito (versiones recientes) o sin él (versiones antiguas)
-    agent = None
-    browser = None
-    try:
-        from browser_use import Browser, BrowserConfig
-        browser = Browser(config=BrowserConfig(headless=False))
-        agent = Agent(task=task, llm=llm, browser=browser)
-    except (ImportError, Exception):
-        agent = Agent(task=task, llm=llm)
+    # Exactamente igual que el original que funcionaba — sin Browser/BrowserConfig
+    # para no interferir con el event loop de playwright
+    llm   = ChatAnthropic(model="claude-opus-4-5", api_key=os.getenv("ANTHROPIC_API_KEY"))
+    agent = Agent(task=task, llm=llm)
 
     estado = "error"
     resultado_texto = ""
     try:
-        result = await asyncio.wait_for(agent.run(max_steps=40), timeout=300)
+        result          = await agent.run(max_steps=50)
         resultado_texto = str(result)
         print(f"\n✅ browser_use completó el proceso")
+        print(f"   {resultado_texto[:200]}...")
         estado = "ok"
-    except asyncio.TimeoutError:
-        resultado_texto = "Timeout: el agente excedió 5 minutos"
-        print(f"\n⏱️  Timeout en browser_use")
-        estado = "advertencia"
     except Exception as e:
         resultado_texto = f"Error: {e}"
         print(f"\n❌ Error en browser_use: {e}")
         estado = "error"
-    finally:
-        if browser is not None:
-            try:
-                await browser.close()
-            except Exception:
-                pass
 
     # Guardar reporte JSON
     Path("sesiones").mkdir(exist_ok=True)
@@ -113,33 +96,33 @@ Al finalizar responde con este JSON:
                    "resultado": resultado_texto, "fecha": datetime.now().isoformat(),
                    "motor": "browser_use"}, f, indent=2, ensure_ascii=False)
 
-    # Parsear datos extraídos del JSON que el agente devuelve al final
+    # Intentar extraer datos estructurados del texto de respuesta
     datos_extraidos = {}
     try:
-        match = re.search(r'\{[^{}]*"completado"[^{}]*\}', resultado_texto, re.DOTALL)
+        match = re.search(r'\{[^{}]*"datos_extraidos"[^{}]*\}', resultado_texto, re.DOTALL)
         if match:
             parsed = json.loads(match.group())
             datos_extraidos = parsed.get("datos_extraidos", {})
-            if not isinstance(datos_extraidos, dict):
-                datos_extraidos = {"resumen": str(datos_extraidos)}
     except Exception:
         pass
+    if not datos_extraidos and resultado_texto:
+        datos_extraidos = {"resumen": resultado_texto[:500]}
 
-    # Construir resultados reales basados en los pasos del plan
+    # Retornar pasos reales del plan con el estado del agente
     pasos = plan.get("pasos", [])
     if not pasos:
         return [{"paso": 1, "accion": "browser_use", "estado": estado,
-                 "intencion": objetivo, "datos_extraidos": datos_extraidos or resultado_texto[:300]}]
+                 "intencion": objetivo, "datos_extraidos": datos_extraidos}]
 
     resultados = []
     for i, p in enumerate(pasos):
-        es_ultimo = i == len(pasos) - 1
+        es_ultimo = (i == len(pasos) - 1)
         resultados.append({
-            "paso":          p["numero"],
-            "accion":        p["accion"],
-            "intencion":     p["intencion"],
-            "estado":        estado if es_ultimo else ("ok" if estado != "error" else "error"),
-            "datos_extraidos": datos_extraidos if es_ultimo and datos_extraidos else None,
+            "paso":            p["numero"],
+            "accion":          p["accion"],
+            "intencion":       p["intencion"],
+            "estado":          estado if es_ultimo else ("ok" if estado != "error" else "error"),
+            "datos_extraidos": datos_extraidos if es_ultimo else None,
         })
     return resultados
 
@@ -260,13 +243,17 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
     """
     print(f"\n🤖 Ejecutando: {plan.get('objetivo')}")
 
-    # Intentar browser_use
+    # Intentar browser_use; fallback a Playwright si no está o falla al iniciar
     try:
         import browser_use  # noqa
         resultados = await ejecutar_con_browser_use(plan, credenciales, email_reporte)
         motor = "browser_use"
     except ImportError:
         print("  ℹ️  browser_use no instalado — usando Playwright+Vision")
+        resultados = await ejecutar_con_playwright(plan, credenciales, email_reporte)
+        motor = "playwright"
+    except Exception as e:
+        print(f"  ⚠️  browser_use falló ({e}) — usando Playwright+Vision como fallback")
         resultados = await ejecutar_con_playwright(plan, credenciales, email_reporte)
         motor = "playwright"
 
