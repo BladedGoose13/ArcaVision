@@ -183,3 +183,17 @@ Responde SOLO este JSON:
     print(f"{'─'*50}")
 
     return plan_inicial
+
+# Alias para compatibilidad con api.py
+def analizar_sesion(eventos: list, audio_path: str) -> dict:
+    plan = procesar_sesion(eventos, audio_path)
+    return {
+        "plan": plan,
+        "preguntas": [],
+        "ya_se": []
+    }
+
+def completar_plan(resultado_fase_a: dict, respuestas_usuario: dict) -> tuple:
+    plan = resultado_fase_a.get("plan", resultado_fase_a)
+    plan["credenciales_obtenidas"] = respuestas_usuario
+    return plan, []
