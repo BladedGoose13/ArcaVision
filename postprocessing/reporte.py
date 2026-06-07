@@ -216,6 +216,25 @@ def generar_excel_compras(datos: dict,
             ws2.column_dimensions[col].width = w
 
     wb.save(output_path)
+
+    # ── Cifrado del Excel financiero en reposo ────────────────────────────────
+    # Si hay llave (ARCAVISION_ENC_KEY), el .xlsx con precios/totales se guarda
+    # como .xlsx.enc (ilegible sin la llave) y se elimina el plano. Sin llave,
+    # se deja el .xlsx normal (degradación elegante para demos).
+    try:
+        from postprocessing.crypto import cifrar_bytes, cifrado_disponible
+        if cifrado_disponible():
+            with open(output_path, "rb") as f:
+                cifrado = cifrar_bytes(f.read())
+            enc_path = output_path + ".enc"
+            with open(enc_path, "wb") as f:
+                f.write(cifrado)
+            os.remove(output_path)
+            print(f"  📦🔐 Excel compras cifrado: {enc_path}")
+            return enc_path
+    except Exception as e:
+        print(f"  ⚠️  No se pudo cifrar el Excel ({e}) — se deja en claro")
+
     print(f"  📦 Excel compras: {output_path}")
     return output_path
 
@@ -1245,9 +1264,17 @@ def enviar_ticket(datos_pedido: dict, datos_reporte: dict,
         with open(excel_path, "rb") as f:
             contenido = f.read()
 
-        # El correo viaja cifrado en tránsito por SMTP_SSL (TLS). Además, si
-        # EMAIL_CIFRAR_ADJUNTO=1 y hay llave, el Excel con el detalle financiero
-        # se cifra también en reposo (se adjunta .xlsx.enc, ilegible sin la llave).
+        # El Excel en reposo ya viene cifrado (.xlsx.enc). Para adjuntarlo legible
+        # al cliente lo desciframos en memoria; el correo viaja cifrado por TLS.
+        if str(excel_path).endswith(".enc"):
+            try:
+                from postprocessing.crypto import descifrar_bytes
+                contenido = descifrar_bytes(contenido)
+            except Exception as e:
+                print(f"  ⚠️  No se pudo descifrar el Excel para adjuntar ({e})")
+
+        # Si EMAIL_CIFRAR_ADJUNTO=1 y hay llave, se re-cifra el adjunto del correo
+        # (se envía .xlsx.enc, ilegible sin la llave) en vez del Excel legible.
         cifrar_adj = os.getenv("EMAIL_CIFRAR_ADJUNTO", "").strip() in ("1", "true", "yes")
         if cifrar_adj:
             try:

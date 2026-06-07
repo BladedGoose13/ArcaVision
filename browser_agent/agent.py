@@ -28,12 +28,16 @@ def _agente_trabado(info: dict) -> bool:
     )
 
 
-def _run_browser_use_sync(task: str, api_key: str, modo_agresivo: bool = False) -> dict:
+def _run_browser_use_sync(task: str, api_key: str, modo_agresivo: bool = False,
+                          max_steps: int = 25) -> dict:
     """
     Ejecuta browser_use Agent en un thread con su propio event loop.
     Retorna dict con estado real extraído del AgentHistoryList.
     modo_agresivo=True inyecta reglas estocásticas más fuertes para sacar al agente
     de loops de scroll cuando el primer intento no avanzó.
+    max_steps escala con el tamaño del plan: un registro de compra (login +
+    navegar + varios productos + formulario de orden) necesita más de 25 pasos,
+    y al agotarlos a mitad del registro el agente parecía "trabado".
     """
     from browser_use import Agent
     from langchain_anthropic import ChatAnthropic
@@ -61,7 +65,7 @@ REGLA ÚNICA: En cada paso DEBES hacer click en el elemento más probable.
             use_vision=False,
         )
         try:
-            result = await agent.run(max_steps=25)
+            result = await agent.run(max_steps=max_steps)
         finally:
             # Cierre explícito del browser — browser_use NO lo cierra solo
             # al terminar run(). Probamos las APIs de varias versiones.
@@ -221,6 +225,13 @@ CÓMO ACTUAR — PROTOCOLO DE DECISIÓN ESTOCÁSTICA:
 5. Si 2 pasos seguidos fallan, o aparece captcha/login inesperado, o la página no carga → TERMINA y reporta el motivo.
 6. Cuando completes todos los pasos → termina de inmediato.
 
+REGISTRO DE DATOS DE COMPRA EN EL SISTEMA DESTINO (donde más te trabas):
+- Llena CADA campo del formulario UNA sola vez: click en el campo, escribe el valor, y pasa al siguiente. NO releas ni re-verifiques un campo ya escrito.
+- Si un campo ya tiene el valor correcto → déjalo y avanza. No lo borres para reescribir.
+- Para dropdowns/selects: abre, elige la opción más parecida al valor del mapeo, y sigue. Si no existe exacta, elige la más cercana; no te quedes buscando.
+- Cuando termines de llenar todos los campos visibles → busca el botón de guardar/registrar/confirmar y haz click. No vuelvas a recorrer el formulario.
+- Si un campo obligatorio no acepta el valor tras 1 intento → anótalo en "datos_extraidos" y continúa con el resto; no bloquees todo el registro por un campo.
+
 REGISTRO DE COMPRAS (crítico para el reporte):
 Cada vez que agregues un producto al carrito/orden, anota nombre exacto, precio unitario y cantidad.
 Llena el array "productos" del JSON final con esos datos reales (no inventes precios).
@@ -242,6 +253,9 @@ Al finalizar (éxito o fallo) llama a la acción "done" con EXACTAMENTE este JSO
 
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     timeout_seg = int(os.getenv("AGENT_TIMEOUT_SEG", "300"))  # 5 min por defecto
+    # ~4 acciones de browser por paso del plan (click, escribir, verificar, scroll),
+    # con piso de 25 y techo de 60 para no dispararse en planes enormes.
+    max_steps = max(25, min(60, n_pasos * 4 + 10))
     estado = "error"
     resultado_texto = ""
     reporte_agente = {}          # JSON auto-reportado por el agente (done action)
@@ -257,14 +271,15 @@ Al finalizar (éxito o fallo) llama a la acción "done" con EXACTAMENTE este JSO
     try:
         # ── Intento 1: modo normal ────────────────────────────────────────────
         import functools
-        info = await _lanzar(functools.partial(_run_browser_use_sync, task, api_key))
+        info = await _lanzar(functools.partial(_run_browser_use_sync, task, api_key,
+                                               False, max_steps))
 
         # ── Reintento estocástico si el agente se trabó (0 pasos útiles) ─────
         if _agente_trabado(info):
             print("\n🎲 Agente trabado — relanzando en modo decisión forzada...")
             try:
                 info2 = await _lanzar(
-                    functools.partial(_run_browser_use_sync, task, api_key, True)
+                    functools.partial(_run_browser_use_sync, task, api_key, True, max_steps)
                 )
                 # Usa el reintento solo si mejoró
                 if info2.get("pasos_ok", 0) >= info.get("pasos_ok", 0):

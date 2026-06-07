@@ -9,3 +9,10 @@ node_modules/
 .streamlit/secrets.toml
 data/real/
 *.pdf
+
+# Reportes generados (pueden contener datos financieros) — no versionar
+reportes/compras_arcavision.xlsx
+reportes/errores_arcavision.xlsx
+reportes/historial_arca.xlsx
+reportes/ticket.html
+*.xlsx.enc
