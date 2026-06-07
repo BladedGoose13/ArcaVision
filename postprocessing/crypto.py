@@ -163,13 +163,60 @@ def descifrar_bytes(datos: bytes) -> bytes:
     return f.decrypt(datos)
 
 
+# ─── Verificación / diagnóstico ───────────────────────────────────────────────
+
+def verificar_db(db_path: Optional[str] = None) -> None:
+    """
+    Inspecciona la tabla `pedidos` en SQLite y reporta cuántos registros
+    financieros están cifrados en reposo. Lee el blob CRUDO (sin descifrar)
+    directamente de la columna para mostrar la verdad de lo que hay en disco.
+    """
+    import sqlite3
+    if db_path is None:
+        db_path = os.path.join(os.path.dirname(__file__), "..", "arcavision.db")
+
+    print(f"\n🔎 Inspeccionando {os.path.abspath(db_path)}")
+    if not os.path.exists(db_path):
+        print("   (la base de datos aún no existe — no hay pedidos guardados)")
+        return
+
+    conn = sqlite3.connect(db_path)
+    existe = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='pedidos'").fetchone()
+    if not existe:
+        conn.close()
+        print("   (la tabla 'pedidos' aún no existe — arranca la app o registra un pedido)")
+        return
+    rows = conn.execute(
+        "SELECT id, productos_json FROM pedidos ORDER BY id DESC LIMIT 20").fetchall()
+    conn.close()
+
+    if not rows:
+        print("   (no hay pedidos registrados todavía)")
+        return
+
+    cif = sum(1 for _, blob in rows if esta_cifrado(blob))
+    print(f"   {cif}/{len(rows)} registros financieros recientes están CIFRADOS en disco\n")
+    for pid, blob in rows:
+        estado = "🔐 CIFRADO " if esta_cifrado(blob) else "⚠️  EN CLARO"
+        print(f"   pedido #{pid}: {estado} → {str(blob)[:46]}…")
+
+
 # ─── CLI de prueba ────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    print("=== ArcaVision — Cifrado de datos sensibles ===\n")
-    print("Cifrado disponible:", cifrado_disponible())
-    pedido = {"cliente": "Walmart", "total": 1704.0,
-              "productos": [{"sku": "CC-2L", "precio": 28.5, "cant": 48}]}
-    tok = cifrar_json(pedido)
-    print("\nRegistro cifrado:\n ", tok)
-    print("\nDescifrado:\n ", descifrar_json(tok))
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "verificar":
+        print("=== ArcaVision — Verificación de cifrado ===")
+        print("Cifrado disponible (llave cargada):", cifrado_disponible())
+        verificar_db()
+    else:
+        print("=== ArcaVision — Cifrado de datos sensibles ===\n")
+        print("Cifrado disponible:", cifrado_disponible())
+        pedido = {"cliente": "Walmart", "total": 1704.0,
+                  "productos": [{"sku": "CC-2L", "precio": 28.5, "cant": 48}]}
+        tok = cifrar_json(pedido)
+        print("\nRegistro cifrado:\n ", tok)
+        print("\nDescifrado:\n ", descifrar_json(tok))
+        print("\n💡 Para verificar la base de datos real corre:")
+        print("   python -m postprocessing.crypto verificar")
