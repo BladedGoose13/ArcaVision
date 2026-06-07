@@ -268,8 +268,6 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 
 /* — Títulos con filo dorado — */
 .page-title,.arca-title{position:relative;display:inline-block}
-.page-title::after,.arca-title::after{content:'';position:absolute;left:0;bottom:-8px;width:46px;height:3px;border-radius:3px;
-  background:linear-gradient(90deg,var(--red),var(--gold));box-shadow:0 1px 6px rgba(201,163,91,.5)}
 
 /* — Cards: profundidad y borde con destello — */
 .card{box-shadow:var(--sh-lux);border-color:rgba(28,26,24,.06);transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s var(--ease);position:relative}
@@ -337,6 +335,44 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 /* — Entrada suave de páginas — */
 .page.active,.arca-page.active{animation:lux-in .5s var(--ease)}
 @keyframes lux-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* — Login panel: fondo cálido — */
+.login-panel{background:linear-gradient(160deg,#fff 0%,#FAF7F4 60%,#F5EEE8 100%);border-left:1px solid rgba(201,163,91,.25)}
+.login-panel::after{content:'';position:absolute;bottom:0;left:0;right:0;height:220px;
+  background:linear-gradient(0deg,rgba(200,16,46,.025) 0%,transparent 100%);pointer-events:none;z-index:0}
+#login-box,#register-box{position:relative;z-index:1}
+
+/* Register panel accent */
+#register-box .login-panel-title{font-size:30px}
+#register-box .form-input{background:white;border-color:rgba(28,26,24,.1)}
+#register-box .btn-login{background:linear-gradient(135deg,var(--g900) 0%,#3d3530 100%)}
+#register-box .btn-login:hover{background:linear-gradient(135deg,var(--red) 0%,var(--red-d) 100%);box-shadow:0 10px 30px -8px rgba(200,16,46,.45)}
+#register-box .login-panel-sub::before{content:'✦ ';color:var(--gold);font-size:10px}
+
+/* — Sidebar cliente nav — */
+.cliente-nav{display:flex;flex-direction:column;gap:2px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--g100)}
+.cliente-nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:all .2s var(--ease);color:var(--g500);font-size:13px;font-weight:500}
+.cliente-nav-item:hover{background:var(--g50);color:var(--g900)}
+.cliente-nav-item.active{background:linear-gradient(135deg,#FFF0F0,#FDE3E3);color:var(--red);box-shadow:inset 0 0 0 1px rgba(200,16,46,.15)}
+.cliente-nav-item.active .cnav-icon{filter:drop-shadow(0 0 4px rgba(200,16,46,.5))}
+.cnav-icon{font-size:16px;width:20px;text-align:center}
+.cnav-label{font-weight:600;letter-spacing:.2px}
+
+/* — Perfil sidebar — */
+.perfil-avatar-wrap{display:flex;align-items:center;gap:12px}
+.perfil-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--red-d));display:flex;align-items:center;justify-content:center;color:white;font-family:'Bebas Neue',sans-serif;font-size:22px;box-shadow:0 4px 14px -4px rgba(200,16,46,.5)}
+.perfil-nombre{font-weight:700;font-size:14px;color:var(--g900)}
+.perfil-empresa{font-size:11px;color:var(--g500);text-transform:uppercase;letter-spacing:.5px}
+.perfil-stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.perfil-stat{background:var(--g50);border-radius:8px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid var(--g100)}
+.perfil-stat-num{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--g900);line-height:1}
+.perfil-stat-label{font-size:10px;color:var(--g500);text-transform:uppercase;letter-spacing:.5px}
+
+/* Historial cliente sidebar items */
+.hist-item{padding:8px 10px;background:var(--g50);border-radius:6px;border-left:3px solid var(--ok);display:flex;flex-direction:column;gap:2px}
+.hist-item.err{border-left-color:var(--err)}
+.hist-item-title{font-weight:600;color:var(--g900);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item-meta{color:var(--g500);font-size:11px}
 </style>
 </head>
 <body>
@@ -495,14 +531,56 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
       <div class="step" data-step="6"><div class="step-num">6</div> Reporte</div>
     </nav>
     <div class="layout">
-      <aside class="sidebar">
-        <div>
+      <aside class="sidebar" id="cliente-sidebar">
+        <!-- Nav items -->
+        <div class="cliente-nav">
+          <div class="cliente-nav-item active" id="cnav-workflow" onclick="clienteNav('workflow',this)">
+            <span class="cnav-icon">⚡</span>
+            <span class="cnav-label">Workflow</span>
+          </div>
+          <div class="cliente-nav-item" id="cnav-historial" onclick="clienteNav('historial',this)">
+            <span class="cnav-icon">📋</span>
+            <span class="cnav-label">Historial</span>
+          </div>
+          <div class="cliente-nav-item" id="cnav-perfil" onclick="clienteNav('perfil',this)">
+            <span class="cnav-icon">👤</span>
+            <span class="cnav-label">Perfil</span>
+          </div>
+        </div>
+
+        <!-- Panel: Workflow (url + reset) -->
+        <div id="cpanel-workflow">
           <div class="sidebar-label" style="margin-bottom:8px">Portal objetivo</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <input type="url" id="inp-url" placeholder="https://portal.walmart.com.mx">
           </div>
+          <button class="btn-reset" onclick="resetCliente()" style="margin-top:auto">↺ Reiniciar</button>
         </div>
-        <button class="btn-reset" onclick="resetCliente()">↺ Reiniciar</button>
+
+        <!-- Panel: Historial -->
+        <div id="cpanel-historial" style="display:none;flex-direction:column;gap:10px">
+          <div class="sidebar-label">Mis últimas órdenes</div>
+          <div id="cliente-hist-list" style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--g700)">
+            <div style="color:var(--g500);font-size:12px;text-align:center;padding:20px 0">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- Panel: Perfil -->
+        <div id="cpanel-perfil" style="display:none;flex-direction:column;gap:14px">
+          <div class="sidebar-label">Mi cuenta</div>
+          <div class="perfil-avatar-wrap">
+            <div class="perfil-avatar" id="perfil-avatar-big">U</div>
+            <div>
+              <div class="perfil-nombre" id="perfil-nombre-txt">—</div>
+              <div class="perfil-empresa" id="perfil-empresa-txt">—</div>
+            </div>
+          </div>
+          <div class="perfil-stat-row">
+            <div class="perfil-stat"><span class="perfil-stat-num" id="perfil-total">0</span><span class="perfil-stat-label">Órdenes</span></div>
+            <div class="perfil-stat"><span class="perfil-stat-num" id="perfil-exito">—</span><span class="perfil-stat-label">Éxito</span></div>
+          </div>
+          <button class="btn-reset" onclick="doLogout()">Cerrar sesión</button>
+        </div>
       </aside>
       <main class="main">
         <!-- CAPTURA -->
@@ -642,6 +720,41 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 
 <script>
 const API = 'http://localhost:8000';
+// ══ SIDEBAR CLIENTE NAV ══
+function clienteNav(panel, btn) {
+  ['workflow','historial','perfil'].forEach(p => {
+    document.getElementById('cpanel-'+p).style.display = 'none';
+    document.getElementById('cnav-'+p).classList.remove('active');
+  });
+  const el = document.getElementById('cpanel-'+panel);
+  el.style.display = 'flex';
+  el.style.flexDirection = 'column';
+  btn.classList.add('active');
+  if (panel === 'historial') cargarHistorialCliente();
+  if (panel === 'perfil') cargarPerfilCliente();
+}
+function cargarHistorialCliente() {
+  const list = document.getElementById('cliente-hist-list');
+  fetch(`${API}/historial?limit=8`).then(r=>r.json()).then(data=>{
+    if (!data.length){list.innerHTML='<div style="color:var(--g500);font-size:12px;text-align:center;padding:20px 0">Sin órdenes aún</div>';return;}
+    list.innerHTML=data.slice(0,8).map(s=>`
+      <div class="hist-item ${s.errores>0?'err':''}">
+        <div class="hist-item-title">${s.objetivo||'Proceso'}</div>
+        <div class="hist-item-meta">${(s.fecha||'').slice(0,10)} · ${s.pasos_ok||0}/${s.total_pasos||0} ok</div>
+      </div>`).join('');
+  }).catch(()=>{list.innerHTML='<div style="color:var(--g500);font-size:12px;text-align:center;padding:20px 0">Sin conexión</div>';});
+}
+function cargarPerfilCliente() {
+  if (!user) return;
+  document.getElementById('perfil-avatar-big').textContent = (user.email||'U')[0].toUpperCase();
+  document.getElementById('perfil-nombre-txt').textContent = user.email||'—';
+  document.getElementById('perfil-empresa-txt').textContent = user.empresa||'—';
+  fetch(`${API}/historial?limit=50`).then(r=>r.json()).then(data=>{
+    const ok = data.filter(s=>s.errores===0).length;
+    document.getElementById('perfil-total').textContent = data.length;
+    document.getElementById('perfil-exito').textContent = data.length ? Math.round(ok/data.length*100)+'%' : '—';
+  }).catch(()=>{});
+}
 let user = null;
 let selectedRole = 'arca';
 let state = { grabando:false, pausado:false, faseA:null, plan:null, planConf:null, resultados:null };
