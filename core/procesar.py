@@ -52,16 +52,16 @@ REGLAS:
 - Máximo 3 preguntas. Si no falta nada, deja preguntas vacío.
 
 Responde SOLO JSON:
-{{
+{
   "preguntas": [
-    {{
+    {
       "campo": "nombre interno del dato",
       "pregunta": "pregunta clara para el usuario",
       "por_que": "por qué no pudiste inferirlo"
-    }}
+    }
   ],
   "ya_se": ["cosas que aprendiste sin preguntar"]
-}}"""
+}"""
         }]
     )
     raw = respuesta.content[0].text.strip()
@@ -109,33 +109,33 @@ Los campos pueden tener nombres DISTINTOS en cada sistema — aprende el mapeo r
 NUNCA uses selectores CSS ni IDs. Describe elementos visualmente.
 
 Responde SOLO este JSON:
-{{
+{
   "plataforma_origen": "nombre del sistema origen",
   "plataforma_destino": "nombre del sistema destino",
   "objetivo": "qué logra este proceso",
   "mapeo_campos": [
-    {{
+    {
       "campo_origen": "nombre en origen",
       "campo_destino": "nombre en destino",
       "descripcion": "qué representa"
-    }}
+    }
   ],
   "credenciales_necesarias": ["datos que el bot necesita pero no vio"],
   "pasos": [
-    {{
+    {
       "numero": 1,
       "sistema": "origen o destino",
       "intencion": "descripción visual de qué hacer",
       "accion": "navegar|click|escribir|seleccionar|verificar|esperar|extraer",
       "valor": "URL o texto si aplica",
       "validacion": "cómo saber que funcionó"
-    }}
+    }
   ],
   "excepciones": [
-    {{"situacion": "qué puede salir mal", "accion": "qué hacer"}}
+    {"situacion": "qué puede salir mal", "accion": "qué hacer"}
   ],
   "reporte_incluir": ["datos a incluir en el reporte por correo"]
-}}"""
+}"""
     })
 
     print("  🤖 Claude analizando...")
