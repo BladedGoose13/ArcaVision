@@ -23,11 +23,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _run_browser_use_sync(task: str, api_key: str) -> str:
+def _run_browser_use_sync(task: str, api_key: str) -> dict:
     """
     Ejecuta browser_use Agent en un thread con su propio event loop.
-    asyncio.run() crea un ProactorEventLoop en Windows, que sí soporta
-    subprocesos — evita el NotImplementedError de SelectorEventLoop.
+    Retorna dict con estado real extraído del AgentHistoryList.
     """
     from browser_use import Agent
     from langchain_anthropic import ChatAnthropic
@@ -38,10 +37,36 @@ def _run_browser_use_sync(task: str, api_key: str) -> str:
             task=task,
             llm=llm,
             max_failures=2,
-            use_vision=False,   # DOM-based navigation: clicks más precisos, sin scroll loop
+            use_vision=False,
         )
         result = await agent.run(max_steps=25)
-        return str(result)
+
+        errores = result.errors() if hasattr(result, "errors") else []
+        errores = [str(e) for e in errores if e]
+
+        final = ""
+        if hasattr(result, "final_result"):
+            final = result.final_result() or ""
+        if not final:
+            # fallback: último extracted_content no vacío
+            for r in reversed(result.action_results() if hasattr(result, "action_results") else []):
+                if getattr(r, "extracted_content", None):
+                    final = str(r.extracted_content)
+                    break
+
+        completado = result.is_done() if hasattr(result, "is_done") else False
+        pasos_ok    = sum(1 for r in (result.action_results() if hasattr(result, "action_results") else [])
+                         if getattr(r, "error", None) is None)
+        pasos_error = sum(1 for r in (result.action_results() if hasattr(result, "action_results") else [])
+                         if getattr(r, "error", None) is not None)
+
+        return {
+            "completado":   completado,
+            "final":        final,
+            "errores":      errores,
+            "pasos_ok":     pasos_ok,
+            "pasos_error":  pasos_error,
+        }
 
     return asyncio.run(_inner())
 
@@ -104,14 +129,31 @@ Al finalizar (éxito o fallo parcial) responde SOLO este JSON sin texto adiciona
     timeout_seg = int(os.getenv("AGENT_TIMEOUT_SEG", "300"))  # 5 min por defecto
     estado = "error"
     resultado_texto = ""
+    pasos_ok_agente = 0
+    pasos_error_agente = 0
     try:
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             future = loop.run_in_executor(pool, _run_browser_use_sync, task, api_key)
-            resultado_texto = await asyncio.wait_for(future, timeout=timeout_seg)
-        print(f"\n✅ browser_use completó el proceso")
-        print(f"   {resultado_texto[:200]}...")
-        estado = "ok"
+            info = await asyncio.wait_for(future, timeout=timeout_seg)
+
+        resultado_texto    = info.get("final", "")
+        pasos_ok_agente    = info.get("pasos_ok", 0)
+        pasos_error_agente = info.get("pasos_error", 0)
+        errores_agente     = info.get("errores", [])
+
+        if info.get("completado"):
+            estado = "ok"
+            print(f"\n✅ browser_use completó el proceso ({pasos_ok_agente} acciones ok, {pasos_error_agente} errores)")
+        else:
+            estado = "parcial" if pasos_ok_agente > 0 else "error"
+            motivo = errores_agente[0] if errores_agente else "detenido sin completar"
+            print(f"\n⚠️  browser_use terminó sin completar — {motivo}")
+            print(f"   Acciones ok: {pasos_ok_agente} | Errores: {pasos_error_agente}")
+
+        if resultado_texto:
+            print(f"   Resultado: {resultado_texto[:200]}")
+
     except asyncio.TimeoutError:
         resultado_texto = f"Timeout: el agente superó {timeout_seg}s sin terminar"
         print(f"\n⏱️  Timeout — agente detenido tras {timeout_seg}s")
@@ -145,15 +187,21 @@ Al finalizar (éxito o fallo parcial) responde SOLO este JSON sin texto adiciona
         return [{"paso": 1, "accion": "browser_use", "estado": estado,
                  "intencion": objetivo, "datos_extraidos": datos_extraidos}]
 
-    estado_paso_ok = "ok" if estado == "ok" else estado  # propaga timeout/error
     resultados = []
     for i, p in enumerate(pasos):
         es_ultimo = (i == len(pasos) - 1)
+        # Asigna "ok" a los primeros pasos_ok_agente pasos, "error" al resto
+        if i < pasos_ok_agente:
+            paso_estado = "ok"
+        elif estado in ("timeout", "error", "parcial") and i >= pasos_ok_agente:
+            paso_estado = estado if es_ultimo else "error"
+        else:
+            paso_estado = "ok"
         resultados.append({
             "paso":            p["numero"],
             "accion":          p["accion"],
             "intencion":       p["intencion"],
-            "estado":          estado if es_ultimo else ("ok" if estado == "ok" else estado_paso_ok),
+            "estado":          paso_estado,
             "datos_extraidos": datos_extraidos if es_ultimo else None,
         })
     return resultados
