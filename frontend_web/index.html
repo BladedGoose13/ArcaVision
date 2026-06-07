@@ -373,6 +373,85 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 .hist-item.err{border-left-color:var(--err)}
 .hist-item-title{font-weight:600;color:var(--g900);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hist-item-meta{color:var(--g500);font-size:11px}
+
+/* ════════════════════════════════════════════════════════════
+   ✦ CAPA AMBIENTE — degradados vivos + animaciones armónicas
+═══════════════════════════════════════════════════════════════ */
+
+/* — Lienzo principal: malla de degradados suaves que respira — */
+.app-shell{position:relative;
+  background:
+    radial-gradient(1100px 520px at 88% -8%, rgba(200,16,46,.06), transparent 60%),
+    radial-gradient(900px 480px at -6% 18%, rgba(201,163,91,.07), transparent 55%),
+    radial-gradient(800px 600px at 50% 120%, rgba(107,58,42,.05), transparent 60%),
+    var(--cream)}
+
+/* — Área de trabajo cliente y Arca: aura cálida animada — */
+.main,.arca-main{position:relative;isolation:isolate}
+.main::before,.arca-main::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(620px 380px at 18% 0%, rgba(200,16,46,.045), transparent 60%),
+    radial-gradient(560px 420px at 96% 30%, rgba(201,163,91,.06), transparent 58%);
+  background-size:160% 160%;animation:aura-drift 22s ease-in-out infinite alternate}
+@keyframes aura-drift{
+  0%{background-position:0% 0%, 100% 0%}
+  50%{background-position:30% 25%, 70% 40%}
+  100%{background-position:0% 0%, 100% 0%}}
+
+/* — Sidebar cliente: degradado vertical con filo dorado — */
+.sidebar{background:linear-gradient(180deg,#fff 0%,#FCFAF7 55%,#F7F2EC 100%);
+  box-shadow:inset -1px 0 0 rgba(201,163,91,.18),2px 0 20px -16px rgba(28,26,24,.3)}
+
+/* — Barra de progreso: degradado y línea inferior viva — */
+.progress-bar{position:relative;background:linear-gradient(90deg,#fff 0%,#FCF9F6 100%);overflow:hidden}
+.progress-bar::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:100%;
+  background:linear-gradient(90deg,transparent,rgba(200,16,46,.5),rgba(201,163,91,.6),rgba(200,16,46,.5),transparent);
+  background-size:200% 100%;animation:rail-flow 6s linear infinite}
+@keyframes rail-flow{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* — Paso activo: latido suave — */
+.step.active .step-num{animation:step-pulse 2.4s ease-in-out infinite}
+@keyframes step-pulse{0%,100%{box-shadow:0 0 0 0 rgba(200,16,46,.35)}50%{box-shadow:0 0 0 6px rgba(200,16,46,0)}}
+
+/* — Nav lateral Arca: degradado profundo + brillo en activa — */
+.arca-nav{background:linear-gradient(185deg,#23201E 0%,#1C1A18 60%,#141210 100%);position:relative}
+.arca-nav::after{content:'';position:absolute;top:0;right:0;width:1px;height:100%;
+  background:linear-gradient(180deg,transparent,rgba(201,163,91,.4),transparent)}
+.arca-nav-item{position:relative;transition:all .25s var(--ease)}
+.arca-nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--red),var(--gold));box-shadow:0 0 12px rgba(201,163,91,.6)}
+
+/* — Zona de grabación: degradado animado al estar lista — */
+.record-zone{background:linear-gradient(135deg,#FBF8F4 0%,#F7F1EA 100%);position:relative;overflow:hidden}
+.record-zone::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;pointer-events:none;
+  background:radial-gradient(circle at 50% 50%, rgba(201,163,91,.08), transparent 40%);
+  animation:zone-breathe 8s ease-in-out infinite}
+@keyframes zone-breathe{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.2);opacity:1}}
+.record-icon{background:linear-gradient(135deg,var(--red),var(--red-d));box-shadow:0 8px 24px -6px rgba(200,16,46,.5),inset 0 0 0 1px rgba(230,205,147,.25)}
+
+/* — Métricas y cards: entrada escalonada armónica — */
+.metrics-row .metric-card{animation:rise-in .55s var(--ease) both}
+.metrics-row .metric-card:nth-child(2){animation-delay:.07s}
+.metrics-row .metric-card:nth-child(3){animation-delay:.14s}
+.metrics-row .metric-card:nth-child(4){animation-delay:.21s}
+.metrics-row .metric-card:nth-child(5){animation-delay:.28s}
+.page.active .card,.arca-page.active .card{animation:rise-in .5s var(--ease) both}
+.page.active .card:nth-of-type(2){animation-delay:.06s}
+.page.active .card:nth-of-type(3){animation-delay:.12s}
+@keyframes rise-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* — Topbar: filo inferior degradado animado — */
+.topbar::after{content:'';position:absolute;left:0;bottom:-3px;height:3px;width:100%;
+  background:linear-gradient(90deg,var(--red) 0%,var(--gold) 50%,var(--red) 100%);
+  background-size:200% 100%;animation:rail-flow 8s linear infinite}
+
+/* — Botón grabación: pálpito de invitación — */
+.record-controls .btn-primary{animation:invite 3s ease-in-out infinite}
+@keyframes invite{0%,100%{box-shadow:0 4px 12px rgba(200,16,46,.25)}50%{box-shadow:0 8px 28px -4px rgba(200,16,46,.5),0 0 0 4px rgba(200,16,46,.06)}}
+
+/* — Respeto a accesibilidad — */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important}}
 </style>
 </head>
 <body>
