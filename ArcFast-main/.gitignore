@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+arcfast.db
+sesiones/audio_*.wav
+sesiones/plan.json
+sesiones/reporte.json
+reportes/
+.venv/
+venv/
+node_modules/
+.DS_Store

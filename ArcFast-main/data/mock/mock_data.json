@@ -1,0 +1,36 @@
+{
+  "transcripcion_mock": "Primero entro al portal de Walmart en la sección de órdenes de compra. Busco la orden más reciente. Copio la columna Clave de artículo y la mapeo al campo SKU en el sistema Arca. La columna Cantidad solicitada va directo al campo qty. El campo Importe lo divido entre la cantidad para obtener el precio unitario. La columna Ref. interna no sé a qué corresponde en Arca.",
+
+  "workflow_mock": {
+    "url_portal": "https://www.saucedemo.com",
+    "pasos": [
+      "Iniciar sesión en portal del cliente",
+      "Navegar a sección de órdenes de compra",
+      "Localizar orden más reciente",
+      "Extraer tabla de productos",
+      "Detectar productos faltantes vs catálogo Arca"
+    ],
+    "mapeos": [
+      { "campo_origen": "Clave de artículo", "campo_destino": "SKU_Arca",     "confianza": 0.94, "flag": false },
+      { "campo_origen": "Cantidad solicitada","campo_destino": "qty",           "confianza": 0.89, "flag": false },
+      { "campo_origen": "Descripción",        "campo_destino": "nombre_prod",  "confianza": 0.76, "flag": false },
+      { "campo_origen": "Importe",            "campo_destino": "precio_unit",  "confianza": 0.61, "flag": true  },
+      { "campo_origen": "Unidad",             "campo_destino": "unidad_med",   "confianza": 0.55, "flag": true  },
+      { "campo_origen": "Ref. interna",       "campo_destino": "???",          "confianza": 0.38, "flag": true  }
+    ]
+  },
+
+  "missing_products_mock": [
+    { "sku_arca": "CC-2L-001",  "nombre": "Coca-Cola 2L",       "cantidad": 48, "precio_unitario": 28.50, "campo_origen_raw": "7501055300018" },
+    { "sku_arca": "SP-600-003", "nombre": "Sprite 600ml",       "cantidad": 24, "precio_unitario": 14.00, "campo_origen_raw": "7501055361002" },
+    { "sku_arca": "FA-355-007", "nombre": "Fanta Naranja 355ml","cantidad": 36, "precio_unitario": 11.50, "campo_origen_raw": "7501055300124" }
+  ],
+
+  "historico_ordenes_mock": [
+    { "fecha": "2026-01-15", "total_productos": 42, "missing": 3, "valor_orden": 18420.00 },
+    { "fecha": "2026-02-01", "total_productos": 38, "missing": 1, "valor_orden": 15800.00 },
+    { "fecha": "2026-02-15", "total_productos": 55, "missing": 7, "valor_orden": 22100.00 },
+    { "fecha": "2026-03-01", "total_productos": 41, "missing": 2, "valor_orden": 17300.00 },
+    { "fecha": "2026-03-15", "total_productos": 48, "missing": 4, "valor_orden": 19800.00 }
+  ]
+}
