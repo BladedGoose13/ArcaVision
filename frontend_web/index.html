@@ -770,7 +770,7 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
           <div style="margin-bottom:4px"><div class="arca-title">Actividad por cliente</div><div class="arca-sub">Desglose de uso y rendimiento por empresa · últimos 6 meses</div></div>
           <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:20px">
             <div class="card"><div class="card-title">Sesiones y órdenes por empresa</div><div id="chart-clientes-bar" style="height:300px"></div></div>
-            <div class="card"><div class="card-title">Tasa de éxito — Top 6</div><div id="chart-clientes-tasa" style="height:300px"></div></div>
+            <div class="card"><div class="card-title">Tasa de éxito — Top 6</div><div id="chart-cli-tasa" style="height:300px"></div></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
             <div class="card"><div class="card-title">Evolución mensual de sesiones</div><div id="chart-clientes-evol" style="height:260px"></div></div>
@@ -1471,10 +1471,14 @@ function renderArcaDias(sd) {
 
 function renderArcaClientesTasa(clientes) {
   const top=[...clientes].sort((a,b)=>b.tasaGlobal-a.tasaGlobal).slice(0,6);
-  Plotly.newPlot('chart-clientes-tasa',[{type:'bar',orientation:'h',y:top.map(c=>c.nombre),x:top.map(c=>Math.round(c.tasaGlobal)),
+  const data=[{type:'bar',orientation:'h',y:top.map(c=>c.nombre),x:top.map(c=>Math.round(c.tasaGlobal)),
     marker:{color:top.map(c=>c.tasaGlobal>=88?'#1A7A45':c.tasaGlobal>=80?'#B87014':'#C8102E')},
-    text:top.map(c=>Math.round(c.tasaGlobal)+'%'),textposition:'outside',hovertemplate:'%{y}: <b>%{x}%</b><extra></extra>'}],
-    {..._PC,margin:_PMS,showlegend:false,xaxis:{range:[0,106],gridcolor:'#EEEBE6',title:'%'},yaxis:{gridcolor:'#EEEBE6'}},{responsive:true,displayModeBar:false});
+    text:top.map(c=>Math.round(c.tasaGlobal)+'%'),textposition:'outside',hovertemplate:'%{y}: <b>%{x}%</b><extra></extra>'}];
+  const layout={..._PC,margin:_PMS,showlegend:false,xaxis:{range:[0,106],gridcolor:'#EEEBE6',title:'%'},yaxis:{gridcolor:'#EEEBE6'}};
+  // Se dibuja tanto en el Resumen como en la pestaña Por cliente (ids distintos)
+  ['chart-clientes-tasa','chart-cli-tasa'].forEach(id=>{
+    if(document.getElementById(id)) Plotly.newPlot(id,JSON.parse(JSON.stringify(data)),layout,{responsive:true,displayModeBar:false});
+  });
 }
 
 function renderArcaClientesBar(clientes) {
