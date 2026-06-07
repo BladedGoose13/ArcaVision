@@ -31,7 +31,7 @@ El flujo completo ocurre dentro de una interfaz web — nada se configura en có
 
 ## Tecnología
 
-**Cerebro:** Claude Opus Vision analiza imágenes y audio simultáneamente. No usa selectores CSS ni coordenadas fijas — entiende la pantalla como lo haría una persona.
+**Cerebro:** Claude Opus Vision analiza imágenes y audio simultáneamente. No usa selectores CSS ni coordenadas fijas, entiende la pantalla como lo haría una persona.
 
 **Agente:** `browser_use` navega el portal por DOM, con límite de fallos y timeout para evitar loops. El navegador se cierra solo al terminar.
 
