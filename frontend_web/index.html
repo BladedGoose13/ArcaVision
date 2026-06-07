@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ArcFast — Arca Continental</title>
+<title>ArcaVision — Arca Continental</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
@@ -539,7 +539,7 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
     <!-- REGISTER FORM -->
     <div id="register-box" style="display:none;flex-direction:column;gap:0">
       <div class="login-panel-title">Crear cuenta</div>
-      <div class="login-panel-sub">Nuevo usuario de ArcFast</div>
+      <div class="login-panel-sub">Nuevo usuario de ArcaVision</div>
 
       <div class="login-error" id="reg-error"></div>
 
@@ -580,7 +580,7 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
     <div class="topbar-brand">
       <div class="logo-mark">AC</div>
       <div>
-        <div class="brand-name">ArcFast</div>
+        <div class="brand-name">ArcaVision</div>
         <div style="font-size:11px;color:var(--g500);letter-spacing:.5px;text-transform:uppercase">Arca Continental</div>
       </div>
     </div>
@@ -1175,7 +1175,7 @@ function renderErrChart(res) {
 
 function descargarReporte() {
   const blob=new Blob([JSON.stringify({plan:state.planConf,resultados:state.resultados},null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reporte_arcfast.json'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reporte_arcavision.json'; a.click();
 }
 
 function resetCliente() {

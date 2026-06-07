@@ -56,7 +56,7 @@ Path("reportes").mkdir(exist_ok=True)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def generar_excel_compras(datos: dict,
-                          output_path: str = "reportes/compras_arcfast.xlsx") -> str:
+                          output_path: str = "reportes/compras_arcavision.xlsx") -> str:
     """
     Hoja 1 — Detalle de productos comprados con precio, cantidad y datos Arca.
     Hoja 2 — Resumen por proveedor / origen.
@@ -89,7 +89,7 @@ def generar_excel_compras(datos: dict,
     # ── Título ────────────────────────────────────────────────────────────────
     ws.row_dimensions[1].height = 36
     ws.merge_cells("A1:J1")
-    ws["A1"] = "ARCFAST — ARCA CONTINENTAL — REGISTRO DE COMPRAS"
+    ws["A1"] = "ARCAVISION — ARCA CONTINENTAL — REGISTRO DE COMPRAS"
     ws["A1"].font      = font_titulo
     ws["A1"].fill      = rojo
     ws["A1"].alignment = centro
@@ -225,7 +225,7 @@ def generar_excel_compras(datos: dict,
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def generar_pdf_reporte(datos: dict,
-                        output_path: str = "reportes/reporte_ia_arcfast.pdf") -> str:
+                        output_path: str = "reportes/reporte_ia_arcavision.pdf") -> str:
     """
     Genera un PDF técnico para el equipo de ingeniería con:
     - Resumen ejecutivo
@@ -240,8 +240,8 @@ def generar_pdf_reporte(datos: dict,
         pagesize=A4,
         rightMargin=2*cm, leftMargin=2*cm,
         topMargin=2*cm, bottomMargin=2*cm,
-        title="ArcFast — Reporte IA",
-        author="ArcFast · Arca Continental",
+        title="ArcaVision — Reporte IA",
+        author="ArcaVision · Arca Continental",
     )
 
     styles = getSampleStyleSheet()
@@ -301,12 +301,12 @@ def generar_pdf_reporte(datos: dict,
     story = []
 
     # ── Cabecera ──────────────────────────────────────────────────────────────
-    story.append(Paragraph("⚡ ARCFAST — ARCA CONTINENTAL", s_titulo))
+    story.append(Paragraph("⚡ ARCAVISION — ARCA CONTINENTAL", s_titulo))
     story.append(Paragraph("Reporte técnico de ejecución IA", s_titulo))
     story.append(Spacer(1, 0.4*cm))
     story.append(Paragraph(
         f"Generado el {fecha}  ·  Motor: {datos.get('motor', 'browser_use / playwright')}  ·  "
-        f"Versión: ArcFast v12", s_meta,
+        f"Versión: ArcaVision v12", s_meta,
     ))
     story.append(HRFlowable(width="100%", thickness=2, color=ROJO_RL, spaceAfter=8))
 
@@ -470,7 +470,7 @@ def generar_pdf_reporte(datos: dict,
     story.append(Spacer(1, 0.5*cm))
     story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#DDDDDD")))
     story.append(Paragraph(
-        "ArcFast · Arca Continental · Hack4Her 2026 · Documento generado automáticamente",
+        "ArcaVision · Arca Continental · Hack4Her 2026 · Documento generado automáticamente",
         s_meta,
     ))
 
@@ -484,7 +484,7 @@ def generar_pdf_reporte(datos: dict,
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def generar_excel_errores(datos: dict,
-                          output_path: str = "reportes/errores_arcfast.xlsx") -> str:
+                          output_path: str = "reportes/errores_arcavision.xlsx") -> str:
     """
     Genera un Excel con:
     - Hoja 1: tabla de errores por tipo + frecuencia
@@ -517,7 +517,7 @@ def generar_excel_errores(datos: dict,
     # ── Título ────────────────────────────────────────────────────────────────
     ws.row_dimensions[1].height = 34
     ws.merge_cells("A1:F1")
-    ws["A1"] = "ARCFAST — ANÁLISIS DE ERRORES DEL AGENTE IA"
+    ws["A1"] = "ARCAVISION — ANÁLISIS DE ERRORES DEL AGENTE IA"
     ws["A1"].font      = Font(bold=True, color="FFFFFF", size=13)
     ws["A1"].fill      = rojo
     ws["A1"].alignment = centro
@@ -867,7 +867,7 @@ def _estilo_tabla_pasos(tabla, rows):
 # Mantener compatibilidad con código existente
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generar_excel(datos: dict, output_path: str = "reportes/reporte_arcfast.xlsx") -> str:
+def generar_excel(datos: dict, output_path: str = "reportes/reporte_arcavision.xlsx") -> str:
     """Alias de compatibilidad — genera el Excel de compras."""
     return generar_excel_compras(datos, output_path)
 
@@ -896,11 +896,11 @@ def generar_ticket_html(datos: dict) -> str:
         </tr>"""
 
     return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>ArcFast — Ticket</title></head>
+<html><head><meta charset="utf-8"><title>ArcaVision — Ticket</title></head>
 <body style="margin:0;background:#f5f5f5;font-family:'Segoe UI',Arial,sans-serif">
 <div style="max-width:640px;margin:30px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1)">
   <div style="background:#C8102E;padding:28px;text-align:center">
-    <h1 style="color:white;margin:0;font-size:22px;letter-spacing:1px">⚡ ArcFast</h1>
+    <h1 style="color:white;margin:0;font-size:22px;letter-spacing:1px">⚡ ArcaVision</h1>
     <p style="color:#ffcccc;margin:6px 0 0;font-size:14px">Arca Continental · Reporte de ejecución</p>
   </div>
   <div style="padding:28px">
@@ -933,7 +933,7 @@ def generar_ticket_html(datos: dict) -> str:
     </table>
   </div>
   <div style="background:#f2f2f2;padding:14px;text-align:center;font-size:11px;color:#999">
-    ArcFast · Arca Continental · Hack4Her 2026
+    ArcaVision · Arca Continental · Hack4Her 2026
   </div>
 </div>
 </body></html>"""
@@ -984,7 +984,7 @@ def agregar_al_historial_excel(datos: dict):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SISTEMA DE TICKETS — extracción, email y persistencia
-# (integrado desde ArcFast-Izhar con mejoras para el contexto FastAPI)
+# (integrado desde ArcaVision-Izhar con mejoras para el contexto FastAPI)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def extraer_datos_pedido(resultado_texto: str, datos_reporte: dict) -> dict:
@@ -1091,7 +1091,7 @@ def generar_ticket_html_premium(datos_pedido: dict, datos_reporte: dict) -> str:
 
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>ArcFast — Ticket de pedido</title>
+<title>ArcaVision — Ticket de pedido</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
 <body style="margin:0;background:#F5F0EB;font-family:'Segoe UI',Arial,sans-serif;padding:20px">
@@ -1101,7 +1101,7 @@ def generar_ticket_html_premium(datos_pedido: dict, datos_reporte: dict) -> str:
   <!-- Header -->
   <div style="background:linear-gradient(135deg,#C8102E 0%,#a00e24 100%);padding:32px;text-align:center;position:relative">
     <div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.6);text-transform:uppercase;margin-bottom:6px">Arca Continental</div>
-    <h1 style="color:white;margin:0;font-size:26px;letter-spacing:2px;font-weight:800">⚡ ARCFAST</h1>
+    <h1 style="color:white;margin:0;font-size:26px;letter-spacing:2px;font-weight:800">⚡ ARCAVISION</h1>
     <p style="color:rgba(255,255,255,.7);margin:8px 0 0;font-size:13px">Confirmación de pedido automatizado</p>
     <div style="margin-top:18px;display:inline-block;padding:6px 20px;border-radius:20px;
                 background:rgba(255,255,255,.15);color:white;font-size:12px;letter-spacing:1px">
@@ -1184,7 +1184,7 @@ def generar_ticket_html_premium(datos_pedido: dict, datos_reporte: dict) -> str:
   <!-- Footer -->
   <div style="background:#1C1A18;padding:16px 28px;display:flex;align-items:center;justify-content:space-between">
     <div style="font-size:11px;color:rgba(255,255,255,.4);letter-spacing:1px">
-      ArcFast · Arca Continental
+      ArcaVision · Arca Continental
     </div>
     <div style="font-size:11px;color:rgba(255,255,255,.3)">Hack4Her 2026</div>
   </div>

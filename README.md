@@ -1,4 +1,4 @@
-# ArcFast ⚡
+# ArcaVision ⚡
 > Agente IA que automatiza la captura de órdenes de compra entre portales de clientes y el sistema interno de Arca Continental.
 
 El agente observa al usuario realizar el proceso **una sola vez**, aprende el mapeo de campos sin reglas hardcodeadas, y lo ejecuta de forma autónoma con nuevos datos.
@@ -15,7 +15,7 @@ El agente observa al usuario realizar el proceso **una sola vez**, aprende el ma
 ## Estructura del repo
 
 ```
-ArcFast/
+ArcaVision/
 ├── backend/
 │   └── api.py                  # FastAPI — conecta frontend HTML con el agente
 ├── browser_agent/
@@ -39,7 +39,7 @@ ArcFast/
 │   └── mock/
 │       ├── mock_data.json      # Datos sintéticos para desarrollo
 │       └── plan_ejemplo.json   # Plan real generado por el agente
-├── arcfast.db                  # Base de datos (se genera automáticamente)
+├── arcavision.db                  # Base de datos (se genera automáticamente)
 ├── .env.example
 └── requirements.txt
 ```
@@ -49,8 +49,8 @@ ArcFast/
 ## Setup
 
 ```bash
-git clone https://github.com/BladedGoose13/ArcFast.git
-cd ArcFast
+git clone https://github.com/BladedGoose13/ArcaVision.git
+cd ArcaVision
 pip install -r requirements.txt
 playwright install chromium
 cp .env.example .env
@@ -94,7 +94,7 @@ streamlit run frontend/app.py
 
 ## Base de datos
 
-SQLite embebida con schema compatible con SQL Server. Se genera automáticamente en `arcfast.db` al primer arranque.
+SQLite embebida con schema compatible con SQL Server. Se genera automáticamente en `arcavision.db` al primer arranque.
 
 | Tabla | Descripción |
 |---|---|

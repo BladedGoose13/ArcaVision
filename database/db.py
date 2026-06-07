@@ -14,7 +14,7 @@ import secrets
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "arcfast.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "arcavision.db")
 
 
 def get_connection():

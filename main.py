@@ -1,5 +1,5 @@
 """
-main.py — CLI de ArcFast
+main.py — CLI de ArcaVision
 --------------------------
 Corre con: python main.py
 Modo web:  uvicorn backend.api:app --reload --port 8000
@@ -38,7 +38,7 @@ def pedir_credenciales(plan: dict) -> dict:
 
 async def main():
     print("\n" + "═"*55)
-    print("  ⚡  ArcFast — Arca Continental")
+    print("  ⚡  ArcaVision — Arca Continental")
     print("  Automatización de órdenes de compra")
     print("═"*55)
     print()

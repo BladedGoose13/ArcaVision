@@ -1,7 +1,7 @@
 """
 shared/schemas.py
 -----------------
-Contrato JSON entre todos los módulos de ArcFast.
+Contrato JSON entre todos los módulos de ArcaVision.
 Todos importan desde aquí — nadie define estructuras propias.
 """
 

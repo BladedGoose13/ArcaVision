@@ -137,7 +137,7 @@ Responde SOLO este JSON sin texto adicional:
       "confianza": 0.95
     }}
   ],
-  "credenciales_necesarias": ["UN item por credencial, ej: 'usuario_arcfast', 'password_arcfast'"],
+  "credenciales_necesarias": ["UN item por credencial, ej: 'usuario_arcavision', 'password_arcavision'"],
   "pasos": [
     {{
       "numero": 1,
@@ -232,15 +232,15 @@ Responde SOLO JSON:
 
 # ─── Filtro de artefactos de grabación ───────────────────────────────────────
 
-_PATRONES_ARCFAST = (
-    "localhost", "127.0.0.1", "0.0.0.0", "arcfast", ":8000", ":8080",
+_PATRONES_ARCAVISION = (
+    "localhost", "127.0.0.1", "0.0.0.0", "arcavision", "arcfast", ":8000", ":8080",
     "regresar a la app", "volver a la app", "cerrar grabación", "detener grabación",
 )
 
 def _filtrar_pasos_grabador(plan: dict) -> None:
     """
     Elimina del final de plan["pasos"] cualquier paso que corresponda a
-    navegar de vuelta a la interfaz ArcFast — artefacto de cuando el usuario
+    navegar de vuelta a la interfaz ArcaVision — artefacto de cuando el usuario
     pulsa 'Detener grabación' y el grabador captura ese clic/navegación.
     Solo borra pasos del final (tail) para no tocar el proceso real.
     """
@@ -256,7 +256,7 @@ def _filtrar_pasos_grabador(plan: dict) -> None:
             str(ultimo.get("intencion", "")),
             str(ultimo.get("validacion", "")),
         ]).lower()
-        if any(p in texto for p in _PATRONES_ARCFAST):
+        if any(p in texto for p in _PATRONES_ARCAVISION):
             nuevos.pop()
             cola -= 1
         else:
@@ -281,7 +281,7 @@ def completar_plan(resultado_fase_a: dict, respuestas_usuario: dict) -> tuple:
     plan["credenciales_obtenidas"] = respuestas_usuario
 
     # Eliminar pasos finales que sean artefactos del grabador (el usuario
-    # vuelve a la app ArcFast para detener la grabación — no son parte del proceso real)
+    # vuelve a la app ArcaVision para detener la grabación — no son parte del proceso real)
     _filtrar_pasos_grabador(plan)
 
     Path("sesiones").mkdir(exist_ok=True)

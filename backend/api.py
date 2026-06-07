@@ -23,7 +23,7 @@ from database.db import (guardar_plan, guardar_sesion, cargar_plan_activo,
                           obtener_historial, obtener_estadisticas,
                           guardar_pedido, obtener_pedidos)
 
-app = FastAPI(title="ArcFast API")
+app = FastAPI(title="ArcaVision API")
 
 app.add_middleware(
     CORSMiddleware,
