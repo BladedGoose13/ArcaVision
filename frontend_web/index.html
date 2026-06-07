@@ -843,27 +843,39 @@ let selectedRole = 'arca';
 let state = { grabando:false, pausado:false, faseA:null, plan:null, planConf:null, resultados:null };
 
 // ══ VOZ (ElevenLabs TTS) ══
+const VOZ_ID = '9cySrnzVAcRAUGO8JQtx';
 let vozActiva = true;
 let vozDisponible = false;
 let _audioActual = null;
 let _colaVoz = Promise.resolve();   // serializa las narraciones para que no se solapen
 
-fetch(`${API}/tts/disponible`).then(r=>r.json()).then(d=>{ vozDisponible = !!d.disponible; }).catch(()=>{});
+// Detecta si ElevenLabs está activo en el backend
+fetch(`${API}/tts/disponible`)
+  .then(r=>r.json())
+  .then(d=>{
+    vozDisponible = !!d.disponible;
+    const b = document.getElementById('btn-voz-toggle');
+    if (b) { b.style.opacity = vozDisponible ? '1' : '0.4'; b.title = vozDisponible ? 'Voz activa' : 'Voz no configurada (ELEVENLABS_API_KEY)'; }
+  }).catch(()=>{});
 
 function hablar(texto, {esperar=false}={}) {
   if (!vozActiva || !vozDisponible || !texto) return Promise.resolve();
   const tarea = () => fetch(`${API}/tts`, {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({texto})
+      body:JSON.stringify({texto, voz: VOZ_ID})
     })
-    .then(res => res.ok ? res.blob() : Promise.reject())
+    .then(res => {
+      if (!res.ok) return res.json().then(e=>{ console.warn('[TTS]', e.error); return Promise.reject(); });
+      return res.blob();
+    })
     .then(blob => new Promise(resolve => {
-      if (_audioActual) { try{_audioActual.pause();}catch(e){} }
-      _audioActual = new Audio(URL.createObjectURL(blob));
-      _audioActual.onended = resolve;
-      _audioActual.onerror = resolve;
+      if (_audioActual) { try{_audioActual.pause(); URL.revokeObjectURL(_audioActual.src);}catch(e){} }
+      const url = URL.createObjectURL(blob);
+      _audioActual = new Audio(url);
+      _audioActual.onended = () => { URL.revokeObjectURL(url); resolve(); };
+      _audioActual.onerror = () => { URL.revokeObjectURL(url); resolve(); };
       _audioActual.play().catch(resolve);
-      if (!esperar) resolve();   // no bloquear si solo es narración de fondo
+      if (!esperar) resolve();
     }))
     .catch(()=>{});
   _colaVoz = _colaVoz.then(tarea);
@@ -872,6 +884,7 @@ function hablar(texto, {esperar=false}={}) {
 
 function detenerVoz() {
   if (_audioActual) { try{_audioActual.pause();}catch(e){} _audioActual=null; }
+  _colaVoz = Promise.resolve();   // vacía la cola para no narrar mensajes viejos
 }
 
 function toggleVoz() {
@@ -881,14 +894,48 @@ function toggleVoz() {
   if (b) { b.textContent = vozActiva ? '🔊 Voz' : '🔇 Voz'; b.style.color = vozActiva ? '' : 'var(--g500)'; }
 }
 
+// ── Puntos de narración a lo largo del flujo ──────────────────────────────────
+
 function narrarPreguntas() {
-  if (!state.faseA || !(state.faseA.preguntas||[]).length) {
-    hablar('No tengo preguntas, ya aprendí todo lo necesario para ejecutar el proceso.');
-    return;
+  const preguntas = (state.faseA||{}).preguntas||[];
+  if (!preguntas.length) {
+    hablar('No tengo preguntas. Ya aprendí todo lo necesario para ejecutar el proceso.'); return;
   }
-  const texto = 'Necesito que me confirmes lo siguiente. ' +
-    state.faseA.preguntas.map((p,i)=>`Pregunta ${i+1}: ${p.pregunta}`).join('. ');
-  hablar(texto, {esperar:true});
+  const intro = preguntas.length === 1
+    ? 'Tengo una pregunta antes de ejecutar.'
+    : `Tengo ${preguntas.length} preguntas antes de ejecutar.`;
+  const cuerpo = preguntas.map((p,i)=>`Pregunta ${i+1}: ${p.pregunta}`).join('. ');
+  hablar(`${intro} ${cuerpo}`, {esperar:true});
+}
+
+function narrarBienvenida(email) {
+  const nombre = email ? email.split('@')[0] : 'equipo';
+  hablar(`Bienvenido, ${nombre}. Soy ArcaVision, listo para automatizar tu proceso.`);
+}
+
+function narrarAnalisis() {
+  hablar('Grabación completada. Analizando el proceso con inteligencia artificial. Un momento.');
+}
+
+function narrarRevision(plan) {
+  const nPasos = (plan.pasos||[]).length, nCampos = (plan.mapeo_campos||[]).length;
+  hablar(`Plan aprendido. Detecté ${nPasos} pasos y ${nCampos} campos mapeados. Revisa que todo esté correcto antes de ejecutar.`);
+}
+
+function narrarEjecucionLista() {
+  hablar('Plan confirmado. Iniciando ejecución autónoma del proceso.');
+}
+
+function narrarResultado(resultados) {
+  const ok  = (resultados||[]).filter(r=>r.estado==='ok').length;
+  const tot = (resultados||[]).length;
+  const err = tot - ok;
+  if (ok === tot)
+    hablar(`Proceso completado con éxito. Los ${tot} pasos fueron ejecutados correctamente.`);
+  else if (ok > 0)
+    hablar(`Proceso terminado. ${ok} de ${tot} pasos exitosos. ${err} pasos requieren revisión.`);
+  else
+    hablar('El proceso no pudo completarse. Revisa los errores en el reporte.');
 }
 
 // ══ LOGIN ══
@@ -978,6 +1025,7 @@ function showRegister() {
 }
 
 function enterApp() {
+  narrarBienvenida(user.email);
   document.getElementById('login-screen').style.display = 'none';
   const shell = document.getElementById('app-shell');
   shell.style.display = 'flex';
@@ -1073,6 +1121,7 @@ async function terminarGrabacion() {
   document.getElementById('record-icon').textContent='⏳';
   document.getElementById('record-title').textContent='Analizando con Claude...';
   document.getElementById('record-sub').textContent='Espera mientras el agente procesa tu grabación.';
+  narrarAnalisis();
   try {
     const res  = await fetch(`${API}/grabar/terminar`,{method:'POST'});
     const data = await res.json();
@@ -1083,6 +1132,7 @@ async function terminarGrabacion() {
       const r2  = await fetch(`${API}/completar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({respuestas:{}})});
       const plan = await r2.json();
       state.plan = plan; renderRevision(plan); goTo('revision');
+      narrarRevision(plan);
     }
   } catch(e) { showToast('Error: '+e.message,'error'); resetRecordUI(); }
 }
@@ -1126,6 +1176,7 @@ async function confirmarRespuestas() {
   const res=await fetch(`${API}/completar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({respuestas})});
   const plan=await res.json();
   state.plan=plan; renderRevision(plan); goTo('revision');
+  narrarRevision(plan);
 }
 
 // ══ REVISIÓN ══
@@ -1155,6 +1206,7 @@ function confirmarRevision() {
   const plan=state.plan, umbral=getUmbral();
   plan.mapeo_campos=(plan.mapeo_campos||[]).map((c,i)=>({campo_origen:document.getElementById(`mo_${i}`)?.value||c.campo_origen,campo_destino:document.getElementById(`md_${i}`)?.value||c.campo_destino,confianza:c.confianza,flag:(c.confianza||1)<umbral}));
   state.planConf=plan; renderEjecucion(plan); goTo('ejecucion');
+  narrarEjecucionLista();
 }
 
 // ══ EJECUCIÓN ══
@@ -1190,8 +1242,7 @@ async function ejecutarAgente() {
     clearInterval(tick);
     const data=await res.json();
     state.resultados=data.resultados; renderAprobacion(data.resultados); goTo('aprobacion');
-    const ok=(data.resultados||[]).filter(r=>r.estado==='ok').length, tot=(data.resultados||[]).length;
-    hablar(`Proceso terminado. Completé ${ok} de ${tot} pasos correctamente.`);
+    narrarResultado(data.resultados);
   } catch(e) { clearInterval(tick); showToast('Error: '+e.message,'error'); document.getElementById('ejecucion-spinner').style.display='none'; }
 }
 
