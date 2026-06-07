@@ -1,0 +1,161 @@
+{
+  "plataforma_origen": "Ninguna (datos manuales)",
+  "plataforma_destino": "Reveel Studio",
+  "objetivo": "Agregar una descripción al café CAFE CACAO en la guía del distritotec dentro de Reveel Studio",
+  "mapeo_campos": [
+    {
+      "campo_origen": "Texto descriptivo",
+      "campo_destino": "Descriptions",
+      "descripcion": "Descripción del establecimiento"
+    }
+  ],
+  "credenciales_necesarias": [
+    "email de Reveel Studio",
+    "contraseña de Reveel Studio"
+  ],
+  "pasos": [
+    {
+      "numero": 1,
+      "sistema": "destino",
+      "intencion": "Abrir el navegador Safari desde el dock",
+      "accion": "click",
+      "valor": "Icono de Safari en el dock (brújula azul)",
+      "validacion": "Se abre la ventana de Safari"
+    },
+    {
+      "numero": 2,
+      "sistema": "destino",
+      "intencion": "Buscar Reveel Studio en Google",
+      "accion": "navegar",
+      "valor": "Escribir 'reveel studio' en la barra de búsqueda de Google",
+      "validacion": "Aparecen resultados de búsqueda con Reveel Studio"
+    },
+    {
+      "numero": 3,
+      "sistema": "destino",
+      "intencion": "Hacer click en el primer resultado de Reveel Studio",
+      "accion": "click",
+      "valor": "Primer resultado que dice 'Reveel Studio' con URL studio.reveel.guide",
+      "validacion": "Se abre la página de inicio de sesión de Reveel Studio"
+    },
+    {
+      "numero": 4,
+      "sistema": "destino",
+      "intencion": "Ingresar el email en el campo Email address",
+      "accion": "escribir",
+      "valor": "{email_reveel}",
+      "validacion": "El email aparece escrito en el campo"
+    },
+    {
+      "numero": 5,
+      "sistema": "destino",
+      "intencion": "Seleccionar la sugerencia de autocompletado o continuar al campo de contraseña",
+      "accion": "click",
+      "valor": "Sugerencia del email o campo de Password",
+      "validacion": "Aparece el campo de contraseña"
+    },
+    {
+      "numero": 6,
+      "sistema": "destino",
+      "intencion": "Ingresar la contraseña en el campo Password",
+      "accion": "escribir",
+      "valor": "{contraseña_reveel}",
+      "validacion": "La contraseña aparece como puntos en el campo"
+    },
+    {
+      "numero": 7,
+      "sistema": "destino",
+      "intencion": "Hacer click en el botón Sign in de color turquesa",
+      "accion": "click",
+      "valor": "Botón 'Sign in' turquesa debajo del campo de contraseña",
+      "validacion": "Se accede al Home Dashboard con mensaje Welcome to Reveel"
+    },
+    {
+      "numero": 8,
+      "sistema": "destino",
+      "intencion": "Hacer click en la guía del distritotec en el menú lateral izquierdo",
+      "accion": "click",
+      "valor": "Opción 'Guía del distritotec' en la sección FAVORITE GUIDEBOOKS del menú lateral",
+      "validacion": "Se muestra el mapa con los puntos de ubicación de la guía"
+    },
+    {
+      "numero": 9,
+      "sistema": "destino",
+      "intencion": "Hacer click en el icono de lista/ubicaciones para ver todas las ubicaciones",
+      "accion": "click",
+      "valor": "Icono de lista circular en la esquina superior derecha del mapa",
+      "validacion": "Se muestra la lista de ubicaciones con columnas NAME, LOCATION, TYPE, STATUS"
+    },
+    {
+      "numero": 10,
+      "sistema": "destino",
+      "intencion": "Buscar CAFE CACAO en el campo de búsqueda",
+      "accion": "escribir",
+      "valor": "caf",
+      "validacion": "Se filtran los resultados mostrando cafés incluyendo CAFE CACAO"
+    },
+    {
+      "numero": 11,
+      "sistema": "destino",
+      "intencion": "Hacer click en CAFE CACAO para editarlo",
+      "accion": "click",
+      "valor": "Fila que contiene 'CAFE CACAO' en la columna NAME",
+      "validacion": "Se abre el panel de edición de CAFE CACAO con las opciones General, Descriptions, Media, Tours, Notes"
+    },
+    {
+      "numero": 12,
+      "sistema": "destino",
+      "intencion": "Hacer click en la sección Descriptions del menú lateral",
+      "accion": "click",
+      "valor": "Opción 'Descriptions' en el menú lateral izquierdo del panel de edición",
+      "validacion": "Se muestra el formulario de descripciones"
+    },
+    {
+      "numero": 13,
+      "sistema": "destino",
+      "intencion": "Agregar la descripción del café",
+      "accion": "escribir",
+      "valor": "Este café es bueno.",
+      "validacion": "El texto aparece en el campo de descripción"
+    },
+    {
+      "numero": 14,
+      "sistema": "destino",
+      "intencion": "Guardar los cambios haciendo click en el botón Save",
+      "accion": "click",
+      "valor": "Botón 'Save' verde en la parte superior junto al nombre CAFE CACAO",
+      "validacion": "Los cambios se guardan y se muestra confirmación"
+    }
+  ],
+  "excepciones": [
+    {
+      "situacion": "La página de login no carga",
+      "accion": "Recargar la página y esperar 5 segundos"
+    },
+    {
+      "situacion": "Credenciales incorrectas",
+      "accion": "Solicitar al usuario verificar email y contraseña"
+    },
+    {
+      "situacion": "CAFE CACAO no aparece en la búsqueda",
+      "accion": "Limpiar el filtro y buscar manualmente en la lista paginada"
+    },
+    {
+      "situacion": "El botón Save no responde",
+      "accion": "Esperar 3 segundos y volver a intentar"
+    },
+    {
+      "situacion": "La sesión expira",
+      "accion": "Volver a iniciar sesión con las credenciales"
+    }
+  ],
+  "reporte_incluir": [
+    "Nombre de la ubicación editada (CAFE CACAO)",
+    "Descripción agregada",
+    "Fecha y hora de la modificación",
+    "Estado de la operación (éxito/error)"
+  ],
+  "credenciales_obtenidas": {
+    "email_reveel": "androsizhara@gmail.com"
+  }
+}

@@ -1,0 +1,435 @@
+[
+  {
+    "tipo": "click",
+    "x": 91.89453125,
+    "y": 753.94140625,
+    "timestamp": "2026-06-07T01:03:40.076980"
+  },
+  {
+    "tipo": "click",
+    "x": 609.875,
+    "y": 484.4296875,
+    "timestamp": "2026-06-07T01:03:41.424193"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "r",
+    "timestamp": "2026-06-07T01:03:45.415356"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:03:45.712742"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "v",
+    "timestamp": "2026-06-07T01:03:45.932884"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:03:46.175915"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:03:46.336947"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "l",
+    "timestamp": "2026-06-07T01:03:46.613346"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.space",
+    "timestamp": "2026-06-07T01:03:46.886937"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "s",
+    "timestamp": "2026-06-07T01:03:47.274939"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "t",
+    "timestamp": "2026-06-07T01:03:47.543862"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "u",
+    "timestamp": "2026-06-07T01:03:47.815802"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "d",
+    "timestamp": "2026-06-07T01:03:48.040979"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "i",
+    "timestamp": "2026-06-07T01:03:48.947832"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "o",
+    "timestamp": "2026-06-07T01:03:49.270760"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.enter",
+    "timestamp": "2026-06-07T01:03:49.689843"
+  },
+  {
+    "tipo": "click",
+    "x": 350.13671875,
+    "y": 363.2734375,
+    "timestamp": "2026-06-07T01:03:51.659466"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "a",
+    "timestamp": "2026-06-07T01:04:05.963365"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "n",
+    "timestamp": "2026-06-07T01:04:06.222471"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "d",
+    "timestamp": "2026-06-07T01:04:06.426368"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "r",
+    "timestamp": "2026-06-07T01:04:06.635408"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "o",
+    "timestamp": "2026-06-07T01:04:06.780246"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "s",
+    "timestamp": "2026-06-07T01:04:06.913522"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "i",
+    "timestamp": "2026-06-07T01:04:07.201299"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "z",
+    "timestamp": "2026-06-07T01:04:07.403389"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "h",
+    "timestamp": "2026-06-07T01:04:07.563780"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "a",
+    "timestamp": "2026-06-07T01:04:07.707338"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "r",
+    "timestamp": "2026-06-07T01:04:07.946946"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "a",
+    "timestamp": "2026-06-07T01:04:08.198360"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.alt_r",
+    "timestamp": "2026-06-07T01:04:09.085319"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": null,
+    "timestamp": "2026-06-07T01:04:09.285019"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.backspace",
+    "timestamp": "2026-06-07T01:04:10.392727"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "a",
+    "timestamp": "2026-06-07T01:04:11.350859"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.alt_r",
+    "timestamp": "2026-06-07T01:04:11.709266"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "@",
+    "timestamp": "2026-06-07T01:04:11.889659"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "i",
+    "timestamp": "2026-06-07T01:04:12.708225"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "c",
+    "timestamp": "2026-06-07T01:04:12.937454"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.backspace",
+    "timestamp": "2026-06-07T01:04:13.474544"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.backspace",
+    "timestamp": "2026-06-07T01:04:13.779311"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "g",
+    "timestamp": "2026-06-07T01:04:14.572730"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "m",
+    "timestamp": "2026-06-07T01:04:14.947441"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "a",
+    "timestamp": "2026-06-07T01:04:15.116383"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "i",
+    "timestamp": "2026-06-07T01:04:15.267088"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "l",
+    "timestamp": "2026-06-07T01:04:15.482490"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": ".",
+    "timestamp": "2026-06-07T01:04:15.812580"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "c",
+    "timestamp": "2026-06-07T01:04:16.093116"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "o",
+    "timestamp": "2026-06-07T01:04:16.243147"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "m",
+    "timestamp": "2026-06-07T01:04:16.440143"
+  },
+  {
+    "tipo": "click",
+    "x": 607.7578125,
+    "y": 564.46875,
+    "timestamp": "2026-06-07T01:04:17.713615"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.caps_lock",
+    "timestamp": "2026-06-07T01:04:18.708586"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.caps_lock",
+    "timestamp": "2026-06-07T01:04:19.150089"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.alt_r",
+    "timestamp": "2026-06-07T01:04:21.304124"
+  },
+  {
+    "tipo": "click",
+    "x": 501.32421875,
+    "y": 673.65234375,
+    "timestamp": "2026-06-07T01:04:39.413087"
+  },
+  {
+    "tipo": "click",
+    "x": 376.3515625,
+    "y": 535.96484375,
+    "timestamp": "2026-06-07T01:04:46.786108"
+  },
+  {
+    "tipo": "click",
+    "x": 1360.609375,
+    "y": 163.83984375,
+    "timestamp": "2026-06-07T01:04:50.424447"
+  },
+  {
+    "tipo": "click",
+    "x": 758.3046875,
+    "y": 163.2734375,
+    "timestamp": "2026-06-07T01:04:52.268170"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "c",
+    "timestamp": "2026-06-07T01:04:53.087660"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "a",
+    "timestamp": "2026-06-07T01:04:53.368679"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "f",
+    "timestamp": "2026-06-07T01:04:54.258651"
+  },
+  {
+    "tipo": "click",
+    "x": 1338.453125,
+    "y": 265.16015625,
+    "timestamp": "2026-06-07T01:04:56.845616"
+  },
+  {
+    "tipo": "click",
+    "x": 622.86328125,
+    "y": 282.69140625,
+    "timestamp": "2026-06-07T01:05:03.614132"
+  },
+  {
+    "tipo": "click",
+    "x": 953.69921875,
+    "y": 427.9140625,
+    "timestamp": "2026-06-07T01:05:04.780270"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:05:06.982185"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "s",
+    "timestamp": "2026-06-07T01:05:07.189309"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "t",
+    "timestamp": "2026-06-07T01:05:07.367278"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:05:07.479720"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.space",
+    "timestamp": "2026-06-07T01:05:07.596896"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "c",
+    "timestamp": "2026-06-07T01:05:07.829823"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "a",
+    "timestamp": "2026-06-07T01:05:07.950807"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "f",
+    "timestamp": "2026-06-07T01:05:08.114957"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:05:08.339826"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.space",
+    "timestamp": "2026-06-07T01:05:08.499099"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:05:08.715976"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "s",
+    "timestamp": "2026-06-07T01:05:08.882853"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.space",
+    "timestamp": "2026-06-07T01:05:08.986775"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "b",
+    "timestamp": "2026-06-07T01:05:09.199727"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "u",
+    "timestamp": "2026-06-07T01:05:09.329606"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "e",
+    "timestamp": "2026-06-07T01:05:09.482868"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "n",
+    "timestamp": "2026-06-07T01:05:09.596514"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "o",
+    "timestamp": "2026-06-07T01:05:09.825711"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": ".",
+    "timestamp": "2026-06-07T01:05:10.323253"
+  },
+  {
+    "tipo": "click",
+    "x": 632.1328125,
+    "y": 160.578125,
+    "timestamp": "2026-06-07T01:05:13.094591"
+  },
+  {
+    "tipo": "click",
+    "x": 134.984375,
+    "y": 690.84375,
+    "timestamp": "2026-06-07T01:05:16.318199"
+  },
+  {
+    "tipo": "tecla",
+    "tecla": "Key.enter",
+    "timestamp": "2026-06-07T01:05:17.302287"
+  }
+]
