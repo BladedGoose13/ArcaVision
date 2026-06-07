@@ -34,8 +34,8 @@ def _run_browser_use_sync(task: str, api_key: str) -> str:
 
     async def _inner():
         llm   = ChatAnthropic(model="claude-opus-4-5", api_key=api_key)
-        agent = Agent(task=task, llm=llm)
-        result = await agent.run(max_steps=50)
+        agent = Agent(task=task, llm=llm, max_failures=2)
+        result = await agent.run(max_steps=25)
         return str(result)
 
     return asyncio.run(_inner())
@@ -74,13 +74,13 @@ MAPEO DE CAMPOS:
 PASOS A EJECUTAR ({n_pasos} en total — guíate por la intención, no por coordenadas):
 {pasos_texto}
 
-REGLAS DE DECISIÓN — léelas antes de actuar:
-1. Ejecuta cada paso en orden. Si un elemento no está visible, haz scroll una sola vez y reintenta.
-2. Si un paso falla dos veces seguidas → márcalo como error, CONTINÚA con el siguiente paso. No repitas el mismo intento más de 2 veces.
-3. Si llevas 3 pasos consecutivos en error → detente, reporta el bloqueo y termina.
-4. Si la página no carga en 15 s o aparece un captcha/login inesperado → termina inmediatamente con estado "bloqueado".
-5. Cuando hayas ejecutado todos los pasos (o tomado la decisión de detenerte) → cierra el proceso y NO hagas nada más.
-6. NUNCA entres en un bucle repitiendo la misma acción fallida esperando un resultado diferente.
+REGLAS DE DECISIÓN — son obligatorias, no opcionales:
+1. Intenta cada acción UNA sola vez. Si falla, toma una decisión inmediata: alternativa obvia o continuar.
+2. Si un paso falla → CONTINÚA con el siguiente. No reintentes lo mismo.
+3. Si 2 pasos seguidos fallan → TERMINA ahora. Reporta qué falló.
+4. Si la página tarda más de 10 s, aparece captcha o login inesperado → TERMINA inmediatamente.
+5. Al terminar todos los pasos → cierra y NO hagas nada más. No navegues extra.
+6. Prohibido: bucles, esperas largas, reintentos repetidos de la misma acción fallida.
 
 Al finalizar (éxito o fallo parcial) responde SOLO este JSON sin texto adicional:
 {{
@@ -95,7 +95,7 @@ Al finalizar (éxito o fallo parcial) responde SOLO este JSON sin texto adiciona
     print(f"   Sistemas: {origen} → {destino}\n")
 
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
-    timeout_seg = int(os.getenv("AGENT_TIMEOUT_SEG", "600"))  # 10 min por defecto
+    timeout_seg = int(os.getenv("AGENT_TIMEOUT_SEG", "300"))  # 5 min por defecto
     estado = "error"
     resultado_texto = ""
     try:
