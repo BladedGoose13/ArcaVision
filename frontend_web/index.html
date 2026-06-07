@@ -586,6 +586,7 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
     </div>
     <div class="topbar-right">
       <span class="badge-rol" id="topbar-badge"></span>
+      <button class="btn-logout" id="btn-voz-toggle" onclick="toggleVoz()" title="Activar o silenciar la voz de la IA">🔊 Voz</button>
       <div class="user-chip">
         <div class="user-avatar" id="topbar-avatar">—</div>
         <span id="topbar-email">—</span>
@@ -684,7 +685,10 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
         </div>
         <!-- PREGUNTAS -->
         <div class="page" id="page-preguntas">
-          <div><div class="page-title">El agente tiene preguntas</div><div class="page-sub">Información que no pude ver durante la grabación.</div></div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div><div class="page-title">El agente tiene preguntas</div><div class="page-sub">Información que no pude ver durante la grabación.</div></div>
+            <button class="btn btn-secondary" id="btn-voz-preguntas" onclick="narrarPreguntas()" style="white-space:nowrap">🔊 Escuchar preguntas</button>
+          </div>
           <div id="ya-se-section" style="display:none"><div class="card"><div class="card-title">✅ Lo que aprendí sin preguntar</div><div id="ya-se-list"></div></div></div>
           <div id="preguntas-list"></div>
           <div class="btn-group">
@@ -837,6 +841,55 @@ function cargarPerfilCliente() {
 let user = null;
 let selectedRole = 'arca';
 let state = { grabando:false, pausado:false, faseA:null, plan:null, planConf:null, resultados:null };
+
+// ══ VOZ (ElevenLabs TTS) ══
+let vozActiva = true;
+let vozDisponible = false;
+let _audioActual = null;
+let _colaVoz = Promise.resolve();   // serializa las narraciones para que no se solapen
+
+fetch(`${API}/tts/disponible`).then(r=>r.json()).then(d=>{ vozDisponible = !!d.disponible; }).catch(()=>{});
+
+function hablar(texto, {esperar=false}={}) {
+  if (!vozActiva || !vozDisponible || !texto) return Promise.resolve();
+  const tarea = () => fetch(`${API}/tts`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({texto})
+    })
+    .then(res => res.ok ? res.blob() : Promise.reject())
+    .then(blob => new Promise(resolve => {
+      if (_audioActual) { try{_audioActual.pause();}catch(e){} }
+      _audioActual = new Audio(URL.createObjectURL(blob));
+      _audioActual.onended = resolve;
+      _audioActual.onerror = resolve;
+      _audioActual.play().catch(resolve);
+      if (!esperar) resolve();   // no bloquear si solo es narración de fondo
+    }))
+    .catch(()=>{});
+  _colaVoz = _colaVoz.then(tarea);
+  return _colaVoz;
+}
+
+function detenerVoz() {
+  if (_audioActual) { try{_audioActual.pause();}catch(e){} _audioActual=null; }
+}
+
+function toggleVoz() {
+  vozActiva = !vozActiva;
+  if (!vozActiva) detenerVoz();
+  const b = document.getElementById('btn-voz-toggle');
+  if (b) { b.textContent = vozActiva ? '🔊 Voz' : '🔇 Voz'; b.style.color = vozActiva ? '' : 'var(--g500)'; }
+}
+
+function narrarPreguntas() {
+  if (!state.faseA || !(state.faseA.preguntas||[]).length) {
+    hablar('No tengo preguntas, ya aprendí todo lo necesario para ejecutar el proceso.');
+    return;
+  }
+  const texto = 'Necesito que me confirmes lo siguiente. ' +
+    state.faseA.preguntas.map((p,i)=>`Pregunta ${i+1}: ${p.pregunta}`).join('. ');
+  hablar(texto, {esperar:true});
+}
 
 // ══ LOGIN ══
 function selectRole(rol, btn) {
@@ -1057,6 +1110,8 @@ function renderPreguntas(data) {
     div.innerHTML=`<div class="pregunta-q">${p.pregunta}</div><div class="pregunta-why">Por qué lo necesito: ${p.por_que}</div><input type="${isPass?'password':'text'}" id="resp-${p.campo}" placeholder="Tu respuesta..." autocomplete="off">`;
     list.appendChild(div);
   });
+  // La IA lee sus preguntas en voz alta automáticamente
+  narrarPreguntas();
 }
 
 async function confirmarRespuestas() {
@@ -1123,12 +1178,20 @@ async function iniciarEjecucion() {
 async function ejecutarAgente() {
   const msgs=['Iniciando el agente...','Abriendo el portal...','Navegando la plataforma...','Extrayendo datos...','Procesando resultados...'];
   let mi=0;
-  const tick=setInterval(()=>{ document.getElementById('spinner-text').textContent=msgs[mi%msgs.length]; mi++; },2500);
+  hablar(msgs[0]);
+  const tick=setInterval(()=>{
+    const m=msgs[mi%msgs.length];
+    document.getElementById('spinner-text').textContent=m;
+    hablar(m);                       // la IA narra cada iteración
+    mi++;
+  },4000);
   try {
     const res=await fetch(`${API}/ejecutar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:state.planConf,credenciales:state.credenciales||{},email:user?.email||''})});
     clearInterval(tick);
     const data=await res.json();
     state.resultados=data.resultados; renderAprobacion(data.resultados); goTo('aprobacion');
+    const ok=(data.resultados||[]).filter(r=>r.estado==='ok').length, tot=(data.resultados||[]).length;
+    hablar(`Proceso terminado. Completé ${ok} de ${tot} pasos correctamente.`);
   } catch(e) { clearInterval(tick); showToast('Error: '+e.message,'error'); document.getElementById('ejecucion-spinner').style.display='none'; }
 }
 
@@ -1179,6 +1242,7 @@ function descargarReporte() {
 }
 
 function resetCliente() {
+  detenerVoz();
   fetch(`${API}/grabar/reiniciar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url_portal:'',email:''})}).catch(()=>{});
   state={grabando:false,pausado:false,faseA:null,plan:null,planConf:null,resultados:null};
   resetRecordUI();

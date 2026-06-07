@@ -11,10 +11,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
 import time
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response, JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
@@ -234,6 +235,40 @@ async def ejecutar_agente(req: EjecutarReq):
     except Exception as e:
         print(f"  ❌ Error en /ejecutar: {e}")
         return {"error": str(e), "resultados": [], "ok": False}
+
+
+# ─── Voz (ElevenLabs TTS) ─────────────────────────────────────────────────────
+class TTSReq(BaseModel):
+    texto: str
+    voz: Optional[str] = "JBFqnCBsd6RMkjVDRZzb"  # voz por defecto
+
+@app.get("/tts/disponible")
+def tts_disponible():
+    return {"disponible": bool(os.getenv("ELEVENLABS_API_KEY"))}
+
+@app.post("/tts")
+async def tts(req: TTSReq):
+    """Convierte texto a voz con ElevenLabs y devuelve el audio MP3."""
+    api_key = os.getenv("ELEVENLABS_API_KEY", "")
+    if not api_key:
+        return JSONResponse({"error": "ELEVENLABS_API_KEY no configurada"}, status_code=503)
+    texto = (req.texto or "").strip()[:2500]
+    if not texto:
+        return JSONResponse({"error": "texto vacío"}, status_code=400)
+
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{req.voz or 'JBFqnCBsd6RMkjVDRZzb'}"
+    payload = {"text": texto, "model_id": "eleven_multilingual_v2"}
+    headers = {"xi-api-key": api_key, "Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=45) as cx:
+            r = await cx.post(url, json=payload, headers=headers,
+                              params={"output_format": "mp3_44100_128"})
+        if r.status_code != 200:
+            return JSONResponse(
+                {"error": f"ElevenLabs {r.status_code}: {r.text[:200]}"}, status_code=502)
+        return Response(content=r.content, media_type="audio/mpeg")
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=502)
 
 
 # ─── Health check ─────────────────────────────────────────────────────────────
