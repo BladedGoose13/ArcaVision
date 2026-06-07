@@ -1,157 +1,141 @@
 {
-  "plataforma_origen": "Arca Continental (arcacontal.com)",
-  "plataforma_destino": "ARCFAST (127.0.0.1:8000)",
-  "objetivo": "Buscar noticias de inversionistas del año 2015 en la página de Arca Continental, extraer el texto, hora y ciudad de una noticia y registrar el proceso en ARCFAST",
+  "plataforma_origen": "YoungLA",
+  "plataforma_destino": "ArcFast",
+  "objetivo": "Extraer información del material de composición del producto 3062 Gold's Glitch Stringers desde YoungLA y registrarlo en ArcFast",
   "mapeo_campos": [
     {
-      "campo_origen": "Título de noticia (ej: Primer Trimestre 2015)",
-      "campo_destino": "Captura del workflow",
-      "descripcion": "Nombre del reporte trimestral encontrado"
+      "campo_origen": "MATERIAL",
+      "campo_destino": "Material de composición",
+      "descripcion": "Composición del tejido del producto (46% Cotton, 46% Lyocell, 8% Elastane)",
+      "confianza": 0.95
     },
     {
-      "campo_origen": "Hora (ej: 10:00 AM Hora de México/Monterrey)",
-      "campo_destino": "Datos extraídos",
-      "descripcion": "Hora y zona horaria del evento"
+      "campo_origen": "FABRIC WEIGHT",
+      "campo_destino": "Peso del tejido",
+      "descripcion": "Gramaje del material (165 GSM)",
+      "confianza": 0.9
     },
     {
-      "campo_origen": "Ciudad (México/Monterrey)",
-      "campo_destino": "Datos extraídos",
-      "descripcion": "Ciudad asociada al evento"
+      "campo_origen": "Nombre del producto",
+      "campo_destino": "Producto",
+      "descripcion": "Identificador del producto (3062 - GOLD'S GLITCH STRINGERS)",
+      "confianza": 0.95
     }
   ],
   "credenciales_necesarias": [
-    "usuario@arca.com (credencial de acceso a ARCFAST visible en pantalla)"
+    "usuario_arcfast",
+    "password_arcfast"
   ],
   "pasos": [
     {
       "numero": 1,
-      "sistema": "destino",
-      "intencion": "Iniciar la grabación del workflow en ARCFAST",
-      "accion": "verificar",
-      "valor": "",
-      "validacion": "Se muestra el indicador rojo GRABANDO... en la pantalla"
+      "sistema": "origen",
+      "intencion": "Abrir el sitio web de YoungLA",
+      "accion": "navegar",
+      "valor": "https://www.youngla.com/",
+      "validacion": "Se muestra la página principal con el logo YOUNGLA y el banner de NEW DROP"
     },
     {
       "numero": 2,
       "sistema": "origen",
-      "intencion": "Abrir la página principal de Arca Continental",
-      "accion": "navegar",
-      "valor": "https://www.arcacontal.com/es",
-      "validacion": "Se muestra el logo de Arca Continental y el menú de navegación con opciones como Acerca de Nosotros, Inversionistas, etc."
+      "intencion": "Hacer clic en el botón PREVIEW que está debajo del texto NEW DROP PREVIEW en el banner principal",
+      "accion": "click",
+      "valor": "Botón PREVIEW en el centro de la página principal",
+      "validacion": "Se navega a la página de colección coming-soon mostrando productos próximos"
     },
     {
       "numero": 3,
       "sistema": "origen",
-      "intencion": "Hacer clic en la sección Prensa del menú superior",
+      "intencion": "Localizar y hacer clic en el producto 3062 - GOLD'S GLITCH STRINGERS - JUNE 9TH que muestra imagen de camiseta sin mangas con diseño gráfico",
       "accion": "click",
-      "valor": "Prensa",
-      "validacion": "Se despliega un submenú con opciones Noticias y Buscador"
+      "valor": "Tarjeta de producto con título 3062 - GOLD'S GLITCH STRINGERS - JUNE 9TH y precio $40.00",
+      "validacion": "Se abre la página de detalle del producto mostrando imágenes del stringer y opciones de color/talla"
     },
     {
       "numero": 4,
       "sistema": "origen",
-      "intencion": "Hacer clic en la opción Buscador dentro del menú de Prensa",
-      "accion": "click",
-      "valor": "Buscador",
-      "validacion": "Se abre la página de resultados de búsqueda con filtros de Sección y País"
+      "intencion": "Desplazar hacia abajo en la página del producto hasta localizar la sección de especificaciones donde aparece MATERIAL",
+      "accion": "esperar",
+      "valor": "2 segundos para que cargue completamente la página",
+      "validacion": "Se visualiza la sección con MATERIAL: 46% Cotton, 46% Lyocell, 8% Elastane"
     },
     {
       "numero": 5,
       "sistema": "origen",
-      "intencion": "Marcar la casilla de Inversionistas en la sección de filtros del lado izquierdo",
-      "accion": "click",
-      "valor": "Inversionistas",
-      "validacion": "La casilla de Inversionistas queda seleccionada y se filtran los resultados"
+      "intencion": "Extraer el texto del campo MATERIAL que indica la composición del tejido",
+      "accion": "extraer",
+      "valor": "Texto junto a la etiqueta MATERIAL:",
+      "validacion": "Se obtiene el valor: 46% Cotton, 46% Lyocell, 8% Elastane"
     },
     {
       "numero": 6,
       "sistema": "origen",
-      "intencion": "Esperar a que carguen los resultados filtrados",
-      "accion": "esperar",
-      "valor": "3 segundos",
-      "validacion": "Se muestran resultados de reportes trimestrales con fechas y horas"
+      "intencion": "Extraer el texto del campo FABRIC WEIGHT que indica el gramaje",
+      "accion": "extraer",
+      "valor": "Texto junto a la etiqueta FABRIC WEIGHT:",
+      "validacion": "Se obtiene el valor: 165 GSM"
     },
     {
       "numero": 7,
-      "sistema": "origen",
-      "intencion": "Hacer clic en el botón Ver más al final de la lista de resultados",
+      "sistema": "destino",
+      "intencion": "Cambiar a la pestaña de ArcFast que está abierta en el navegador",
       "accion": "click",
-      "valor": "Ver más",
-      "validacion": "Se cargan más resultados de reportes trimestrales anteriores"
+      "valor": "Pestaña del navegador que muestra 127.0.0.1:8000 con logo ArcFast",
+      "validacion": "Se visualiza la interfaz de ArcFast con el encabezado ARCA CONTINENTAL"
     },
     {
       "numero": 8,
-      "sistema": "origen",
-      "intencion": "Continuar haciendo clic en Ver más hasta encontrar noticias del año 2015",
-      "accion": "click",
-      "valor": "Ver más",
-      "validacion": "Aparecen resultados como Primer Trimestre 2015, Cuarto Trimestre 2015, etc."
+      "sistema": "destino",
+      "intencion": "Registrar los datos extraídos del material en el sistema ArcFast",
+      "accion": "escribir",
+      "valor": "MATERIAL: 46% Cotton, 46% Lyocell, 8% Elastane | FABRIC WEIGHT: 165 GSM",
+      "validacion": "Los datos quedan registrados en el campo correspondiente del workflow"
     },
     {
       "numero": 9,
-      "sistema": "origen",
-      "intencion": "Localizar una noticia del año 2015 como Primer Trimestre 2015",
-      "accion": "verificar",
-      "valor": "",
-      "validacion": "Se visualiza el texto Primer Trimestre 2015 con su hora 10:00 AM Hora de México/Monterrey"
-    },
-    {
-      "numero": 10,
-      "sistema": "origen",
-      "intencion": "Extraer el texto del título de la noticia del 2015",
-      "accion": "extraer",
-      "valor": "Primer Trimestre 2015",
-      "validacion": "Se copia el texto del título de la noticia"
-    },
-    {
-      "numero": 11,
-      "sistema": "origen",
-      "intencion": "Extraer la hora y ciudad asociada a la noticia",
-      "accion": "extraer",
-      "valor": "10:00 AM Hora de México/Monterrey",
-      "validacion": "Se copia la información de hora y ubicación"
-    },
-    {
-      "numero": 12,
       "sistema": "destino",
-      "intencion": "Regresar a la ventana de ARCFAST para finalizar la grabación",
+      "intencion": "Finalizar la grabación del workflow haciendo clic en el botón rojo Terminar y analizar",
       "accion": "click",
-      "valor": "Pestaña de ARCFAST en el navegador",
-      "validacion": "Se muestra la interfaz de ARCFAST con el botón Terminar y analizar"
-    },
-    {
-      "numero": 13,
-      "sistema": "destino",
-      "intencion": "Hacer clic en el botón rojo Terminar y analizar para finalizar la captura",
-      "accion": "click",
-      "valor": "Terminar y analizar",
-      "validacion": "El workflow pasa a la siguiente etapa de PREGUNTAS o REVISIÓN"
+      "valor": "Botón rojo con texto Terminar y analizar ubicado en la parte inferior de la pantalla",
+      "validacion": "El sistema pasa al siguiente paso del workflow (PREGUNTAS o REVISIÓN)"
     }
   ],
   "excepciones": [
     {
-      "situacion": "El botón Ver más no carga más resultados o la página tarda en responder",
-      "accion": "Esperar 5 segundos adicionales y volver a intentar hacer clic en Ver más"
+      "situacion": "El producto 3062 Gold's Glitch Stringers no aparece en la página de coming-soon",
+      "accion": "Usar la barra de búsqueda en la parte superior del sitio y buscar '3062' o 'Gold's Glitch Stringers'"
     },
     {
-      "situacion": "No se encuentran noticias del 2015 después de varios clics en Ver más",
-      "accion": "Verificar si hay más páginas disponibles o usar el campo de búsqueda para filtrar por 2015"
+      "situacion": "El botón PREVIEW no está visible en el banner principal",
+      "accion": "Navegar directamente a https://www.youngla.com/collections/coming-soon"
     },
     {
-      "situacion": "La sesión de ARCFAST expira durante la grabación",
-      "accion": "Volver a iniciar sesión con usuario@arca.com y reiniciar la grabación del workflow"
+      "situacion": "La sección MATERIAL no es visible en la página del producto",
+      "accion": "Desplazar hacia abajo en la página hasta encontrar las especificaciones técnicas del producto"
     },
     {
-      "situacion": "El menú de Prensa no se despliega correctamente",
-      "accion": "Refrescar la página y volver a hacer clic en Prensa en el menú superior"
+      "situacion": "La página de YoungLA carga lentamente o muestra error",
+      "accion": "Esperar 5 segundos adicionales y refrescar la página"
+    },
+    {
+      "situacion": "La sesión de ArcFast ha expirado",
+      "accion": "Iniciar sesión nuevamente con las credenciales de usuario"
     }
   ],
   "reporte_incluir": [
-    "Título de la noticia encontrada (ej: Primer Trimestre 2015)",
-    "Hora del evento (ej: 10:00 AM)",
-    "Ciudad/Zona horaria (ej: México/Monterrey)",
-    "URL de la página donde se encontró la información",
-    "Fecha y hora de ejecución del proceso",
-    "Estado del workflow en ARCFAST"
-  ]
+    "Nombre del producto: 3062 - GOLD'S GLITCH STRINGERS",
+    "Fecha de lanzamiento: JUNE 9TH",
+    "Precio: $40.00",
+    "Material: 46% Cotton, 46% Lyocell, 8% Elastane",
+    "Peso del tejido: 165 GSM",
+    "Colores disponibles: Negro, Azul, Morado, Rojo",
+    "Tallas disponibles: Small, Medium, Large, XLarge, XXLarge",
+    "Estado: COMING SOON",
+    "URL del producto: https://www.youngla.com/products/3062"
+  ],
+  "url_portal": "https://www.youngla.com/",
+  "credenciales_obtenidas": {
+    "usuario_arcfast": "usuario@gmail.com",
+    "password_arcfast": "Maximiliano1"
+  }
 }

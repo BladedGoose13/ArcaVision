@@ -6,7 +6,7 @@ import asyncio
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="ArcFast", layout="wide", page_icon="⚡")
+st.set_page_config(page_title="ArcaVision", layout="wide", page_icon="⚡")
 
 st.markdown("""
 <style>
@@ -25,7 +25,7 @@ st.markdown("""
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.title("ArcFast ⚡")
+    st.title("ArcaVision ⚡")
     st.caption("Agente IA para Arca Continental")
     st.divider()
     user_email = st.text_input("Email del usuario", placeholder="usuario@arca.com")
@@ -406,7 +406,7 @@ elif st.session_state.etapa == "resultado":
             }.get(val, "")
 
         st.dataframe(
-            df.style.applymap(color_estado, subset=["Estado"]),
+            df.style.map(color_estado, subset=["Estado"]),
             use_container_width=True, hide_index=True,
         )
 
@@ -431,7 +431,7 @@ elif st.session_state.etapa == "resultado":
         data=json.dumps({"plan": plan, "resultados": resultados,
                          "resumen": f"{ok}/{total} pasos exitosos"},
                         indent=2, ensure_ascii=False),
-        file_name="reporte_arcfast.json",
+        file_name="reporte_arcavision.json",
         mime="application/json",
         use_container_width=True,
     )

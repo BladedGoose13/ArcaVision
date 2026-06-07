@@ -7,7 +7,11 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
-client = Anthropic()
+
+_api_key = os.getenv("ANTHROPIC_API_KEY")
+if not _api_key:
+    raise RuntimeError("ANTHROPIC_API_KEY no está configurada en el entorno")
+client = Anthropic(api_key=_api_key)
 
 
 def transcribir_audio(audio_path: str) -> str:

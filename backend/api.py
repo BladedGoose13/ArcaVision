@@ -19,9 +19,11 @@ from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
-from database.db import guardar_plan, guardar_sesion, cargar_plan_activo, obtener_historial, obtener_estadisticas
+from database.db import (guardar_plan, guardar_sesion, cargar_plan_activo,
+                          obtener_historial, obtener_estadisticas,
+                          guardar_pedido, obtener_pedidos)
 
-app = FastAPI(title="ArcFast API")
+app = FastAPI(title="ArcaVision API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -111,8 +113,10 @@ def auth_register(req: RegisterReq):
 def grabar_iniciar(req: IniciarGrabacionReq):
     from browser_agent.grabador import Grabador
     if session["grabador"]:
-        try: session["grabador"].detener()
-        except: pass
+        try:
+            session["grabador"].detener()
+        except Exception as e:
+            print(f"  ⚠️  Error deteniendo grabador anterior: {e}")
 
     g = Grabador()
     g.iniciar()
@@ -133,7 +137,8 @@ def grabar_pausar():
     try:
         g.mouse_listener.stop()
         g.keyboard_listener.stop()
-    except: pass
+    except Exception as e:
+        print(f"  ⚠️  Error pausando listeners: {e}")
     return {"ok": True}
 
 
@@ -154,8 +159,10 @@ def grabar_continuar():
 def grabar_reiniciar(req: IniciarGrabacionReq):
     from browser_agent.grabador import Grabador
     if session["grabador"]:
-        try: session["grabador"].detener()
-        except: pass
+        try:
+            session["grabador"].detener()
+        except Exception as e:
+            print(f"  ⚠️  Error deteniendo grabador anterior: {e}")
     g = Grabador()
     g.iniciar()
     session["grabador"]   = g
@@ -211,11 +218,10 @@ def completar(req: CompletarReq):
 
 # ─── Ejecutar agente ──────────────────────────────────────────────────────────
 @app.post("/ejecutar")
-def ejecutar_agente(req: EjecutarReq):
+async def ejecutar_agente(req: EjecutarReq):
     try:
         from browser_agent.agent import ejecutar
-        resultados = asyncio.run(ejecutar(req.plan, req.credenciales, req.email or ""))
-        # Guardar sesión en DB
+        resultados = await ejecutar(req.plan, req.credenciales, req.email or "")
         duracion = time.time() - (session.get("t_inicio") or time.time())
         guardar_sesion(
             plan=req.plan,
@@ -226,7 +232,8 @@ def ejecutar_agente(req: EjecutarReq):
         )
         return {"resultados": resultados, "ok": True}
     except Exception as e:
-        return {"error": f"Error en ejecución: {e}", "resultados": []}
+        print(f"  ❌ Error en /ejecutar: {e}")
+        return {"error": str(e), "resultados": [], "ok": False}
 
 
 # ─── Health check ─────────────────────────────────────────────────────────────
@@ -235,10 +242,24 @@ def health():
     return {"status": "ok", "sesion_activa": session["grabador"] is not None}
 
 
-# ─── Historial y estadísticas ─────────────────────────────────────────────────
+# ─── Historial, estadísticas y pedidos ───────────────────────────────────────
 @app.get("/historial")
 def historial(limit: int = 20):
     return obtener_historial(limit)
+
+
+@app.get("/pedidos")
+def pedidos(limit: int = 50):
+    return obtener_pedidos(limit)
+
+
+@app.get("/ticket")
+def ticket_html():
+    from fastapi.responses import HTMLResponse
+    ticket_path = "reportes/ticket.html"
+    if not __import__("pathlib").Path(ticket_path).exists():
+        return HTMLResponse("<p>No hay ticket generado aún.</p>")
+    return HTMLResponse(open(ticket_path, encoding="utf-8").read())
 
 
 @app.get("/estadisticas")

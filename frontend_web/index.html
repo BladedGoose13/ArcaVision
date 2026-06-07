@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ArcFast — Arca Continental</title>
+<title>ArcaVision — Arca Continental</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
@@ -242,6 +242,216 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
 .tasa-bar{display:inline-flex;align-items:center;gap:6px}
 .tasa-track{width:60px;height:4px;background:var(--g100);border-radius:2px;overflow:hidden}
 .tasa-fill{height:100%;border-radius:2px;background:var(--ok)}
+
+/* ════════════════════════════════════════════════════════════
+   ✦ CAPA DELUXE — refinamiento premium (solo estética, cascada)
+   No modifica estructura, HTML ni JS. Acento champagne + rojo Arca.
+═══════════════════════════════════════════════════════════════ */
+:root{
+  --gold:#C9A35B; --gold-l:#E6CD93; --gold-d:#9E7C3A;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --sh-lux:0 1px 2px rgba(28,26,24,.04),0 8px 24px -8px rgba(28,26,24,.12),0 18px 48px -24px rgba(28,26,24,.16);
+  --sh-gold:0 8px 28px -10px rgba(201,163,91,.45);
+}
+
+/* — Tipografía con renderizado fino — */
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+
+/* — Scrollbar premium — */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:linear-gradient(var(--g300),var(--g500));border-radius:10px;border:2px solid var(--cream)}
+*::-webkit-scrollbar-thumb:hover{background:linear-gradient(var(--gold),var(--gold-d))}
+
+/* — Selección de texto — */
+::selection{background:rgba(201,163,91,.28);color:var(--g900)}
+
+/* — Títulos con filo dorado — */
+.page-title,.arca-title{position:relative;display:inline-block}
+
+/* — Cards: profundidad y borde con destello — */
+.card{box-shadow:var(--sh-lux);border-color:rgba(28,26,24,.06);transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s var(--ease);position:relative}
+.card::before{content:'';position:absolute;inset:0;border-radius:var(--rl);padding:1px;pointer-events:none;
+  background:linear-gradient(140deg,rgba(201,163,91,.35),transparent 40%,transparent 60%,rgba(200,16,46,.18));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .35s var(--ease)}
+.card:hover{transform:translateY(-3px);box-shadow:var(--sh-lux),0 24px 60px -28px rgba(200,16,46,.28)}
+.card:hover::before{opacity:1}
+
+/* — Card title con punto dorado — */
+.card-title{position:relative;padding-left:14px}
+.card-title::before{content:'';position:absolute;left:0;top:1px;width:6px;height:6px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,var(--gold-l),var(--gold-d));box-shadow:0 0 8px rgba(201,163,91,.7)}
+
+/* — Botón primario: barniz dorado deslizante — */
+.btn-primary,.btn-login{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--red) 0%,var(--red-d) 100%);transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
+.btn-primary::before,.btn-login::before{content:'';position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(230,205,147,.55),transparent);transform:skewX(-18deg);transition:left .6s var(--ease)}
+.btn-primary:hover::before,.btn-login:hover::before{left:130%}
+.btn-primary:hover,.btn-login:hover{box-shadow:0 10px 30px -8px rgba(200,16,46,.45),var(--sh-gold)}
+
+/* — Topbar glass con hilo dorado bajo el rojo — */
+.topbar{backdrop-filter:saturate(1.3) blur(6px);background:rgba(255,255,255,.86);box-shadow:0 1px 0 rgba(201,163,91,.35),0 6px 22px -12px rgba(28,26,24,.25)}
+.logo-mark{background:linear-gradient(135deg,var(--red),var(--red-d));box-shadow:0 4px 14px -4px rgba(200,16,46,.55),inset 0 0 0 1px rgba(230,205,147,.3)}
+
+/* — Métricas: acento superior dorado + relieve — */
+.metric-card{box-shadow:var(--sh-lux);border-color:rgba(28,26,24,.06);position:relative;overflow:hidden;transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+.metric-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),var(--gold),transparent)}
+.metric-card:hover{transform:translateY(-2px);box-shadow:var(--sh-lux),0 18px 44px -22px rgba(201,163,91,.4)}
+.metric-value{background:linear-gradient(135deg,var(--g900),var(--g700));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.metric-value.red{background:linear-gradient(135deg,var(--red),var(--red-d));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* — Badges con grano sutil — */
+.badge{box-shadow:inset 0 0 0 1px rgba(28,26,24,.04)}
+.badge-arca{background:linear-gradient(135deg,#FFF0F0,#FDE3E3)}
+
+/* — Inputs: foco con halo cálido — */
+.form-input:focus,.sidebar input:focus,.pregunta-card input:focus,.mapeo-table input:focus{
+  box-shadow:0 0 0 3px rgba(200,16,46,.08),0 0 0 1px rgba(201,163,91,.25)}
+
+/* — Pregunta-card: realce editorial — */
+.pregunta-card{box-shadow:var(--sh-lux);border-color:rgba(28,26,24,.06);transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+.pregunta-card:hover{transform:translateY(-2px);box-shadow:var(--sh-lux),0 16px 40px -22px rgba(200,16,46,.22)}
+.pregunta-q{position:relative;padding-left:14px}
+.pregunta-q::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:3px;background:linear-gradient(var(--red),var(--gold))}
+
+/* — Role cards seleccionada: anillo dorado — */
+.role-btn.selected{box-shadow:0 0 0 1px var(--red),0 0 0 4px rgba(201,163,91,.18),0 12px 30px -14px rgba(200,16,46,.3)}
+
+/* — Login hero: vetas doradas sobre el degradado — */
+.login-hero-content::after{content:'';position:absolute;left:52px;right:52px;bottom:140px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,163,91,.5),transparent)}
+.login-hero-title span{background:linear-gradient(135deg,var(--red),var(--gold-l));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero-stat-num{background:linear-gradient(135deg,#fff,var(--gold-l));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* — Nav Arca activa: filo dorado interior — */
+.arca-nav-item.active{box-shadow:inset 0 0 24px -16px rgba(201,163,91,.7)}
+
+/* — Spinner con doble anillo dorado — */
+.spinner{border-top-color:var(--red);border-right-color:rgba(201,163,91,.5)}
+
+/* — Filas de tablas con hover cálido — */
+.results-table tr:hover td,.historial-table tr:hover td{background:linear-gradient(90deg,rgba(201,163,91,.05),transparent)}
+
+/* — Entrada suave de páginas — */
+.page.active,.arca-page.active{animation:lux-in .5s var(--ease)}
+@keyframes lux-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* — Login panel: fondo cálido — */
+.login-panel{background:linear-gradient(160deg,#fff 0%,#FAF7F4 60%,#F5EEE8 100%);border-left:1px solid rgba(201,163,91,.25)}
+.login-panel::after{content:'';position:absolute;bottom:0;left:0;right:0;height:220px;
+  background:linear-gradient(0deg,rgba(200,16,46,.025) 0%,transparent 100%);pointer-events:none;z-index:0}
+#login-box,#register-box{position:relative;z-index:1}
+
+/* Register panel accent */
+#register-box .login-panel-title{font-size:30px}
+#register-box .form-input{background:white;border-color:rgba(28,26,24,.1)}
+#register-box .btn-login{background:linear-gradient(135deg,var(--g900) 0%,#3d3530 100%)}
+#register-box .btn-login:hover{background:linear-gradient(135deg,var(--red) 0%,var(--red-d) 100%);box-shadow:0 10px 30px -8px rgba(200,16,46,.45)}
+#register-box .login-panel-sub::before{content:'✦ ';color:var(--gold);font-size:10px}
+
+/* — Sidebar cliente nav — */
+.cliente-nav{display:flex;flex-direction:column;gap:2px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--g100)}
+.cliente-nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:all .2s var(--ease);color:var(--g500);font-size:13px;font-weight:500}
+.cliente-nav-item:hover{background:var(--g50);color:var(--g900)}
+.cliente-nav-item.active{background:linear-gradient(135deg,#FFF0F0,#FDE3E3);color:var(--red);box-shadow:inset 0 0 0 1px rgba(200,16,46,.15)}
+.cliente-nav-item.active .cnav-icon{filter:drop-shadow(0 0 4px rgba(200,16,46,.5))}
+.cnav-icon{font-size:16px;width:20px;text-align:center}
+.cnav-label{font-weight:600;letter-spacing:.2px}
+
+/* — Perfil sidebar — */
+.perfil-avatar-wrap{display:flex;align-items:center;gap:12px}
+.perfil-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--red),var(--red-d));display:flex;align-items:center;justify-content:center;color:white;font-family:'Bebas Neue',sans-serif;font-size:22px;box-shadow:0 4px 14px -4px rgba(200,16,46,.5)}
+.perfil-nombre{font-weight:700;font-size:14px;color:var(--g900)}
+.perfil-empresa{font-size:11px;color:var(--g500);text-transform:uppercase;letter-spacing:.5px}
+.perfil-stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.perfil-stat{background:var(--g50);border-radius:8px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid var(--g100)}
+.perfil-stat-num{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--g900);line-height:1}
+.perfil-stat-label{font-size:10px;color:var(--g500);text-transform:uppercase;letter-spacing:.5px}
+
+/* Historial cliente sidebar items */
+.hist-item{padding:8px 10px;background:var(--g50);border-radius:6px;border-left:3px solid var(--ok);display:flex;flex-direction:column;gap:2px}
+.hist-item.err{border-left-color:var(--err)}
+.hist-item-title{font-weight:600;color:var(--g900);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-item-meta{color:var(--g500);font-size:11px}
+
+/* ════════════════════════════════════════════════════════════
+   ✦ CAPA AMBIENTE — degradados vivos + animaciones armónicas
+═══════════════════════════════════════════════════════════════ */
+
+/* — Lienzo principal: malla de degradados suaves que respira — */
+.app-shell{position:relative;
+  background:
+    radial-gradient(1100px 520px at 88% -8%, rgba(200,16,46,.06), transparent 60%),
+    radial-gradient(900px 480px at -6% 18%, rgba(201,163,91,.07), transparent 55%),
+    radial-gradient(800px 600px at 50% 120%, rgba(107,58,42,.05), transparent 60%),
+    var(--cream)}
+
+/* — Área de trabajo cliente y Arca: aura cálida animada — */
+.main,.arca-main{position:relative;isolation:isolate}
+.main::before,.arca-main::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(620px 380px at 18% 0%, rgba(200,16,46,.045), transparent 60%),
+    radial-gradient(560px 420px at 96% 30%, rgba(201,163,91,.06), transparent 58%);
+  background-size:160% 160%;animation:aura-drift 22s ease-in-out infinite alternate}
+@keyframes aura-drift{
+  0%{background-position:0% 0%, 100% 0%}
+  50%{background-position:30% 25%, 70% 40%}
+  100%{background-position:0% 0%, 100% 0%}}
+
+/* — Sidebar cliente: degradado vertical con filo dorado — */
+.sidebar{background:linear-gradient(180deg,#fff 0%,#FCFAF7 55%,#F7F2EC 100%);
+  box-shadow:inset -1px 0 0 rgba(201,163,91,.18),2px 0 20px -16px rgba(28,26,24,.3)}
+
+/* — Barra de progreso: degradado y línea inferior viva — */
+.progress-bar{position:relative;background:linear-gradient(90deg,#fff 0%,#FCF9F6 100%);overflow:hidden}
+.progress-bar::after{content:'';position:absolute;left:0;bottom:0;height:2px;width:100%;
+  background:linear-gradient(90deg,transparent,rgba(200,16,46,.5),rgba(201,163,91,.6),rgba(200,16,46,.5),transparent);
+  background-size:200% 100%;animation:rail-flow 6s linear infinite}
+@keyframes rail-flow{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* — Paso activo: latido suave — */
+.step.active .step-num{animation:step-pulse 2.4s ease-in-out infinite}
+@keyframes step-pulse{0%,100%{box-shadow:0 0 0 0 rgba(200,16,46,.35)}50%{box-shadow:0 0 0 6px rgba(200,16,46,0)}}
+
+/* — Nav lateral Arca: degradado profundo + brillo en activa — */
+.arca-nav{background:linear-gradient(185deg,#23201E 0%,#1C1A18 60%,#141210 100%);position:relative}
+.arca-nav::after{content:'';position:absolute;top:0;right:0;width:1px;height:100%;
+  background:linear-gradient(180deg,transparent,rgba(201,163,91,.4),transparent)}
+.arca-nav-item{position:relative;transition:all .25s var(--ease)}
+.arca-nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--red),var(--gold));box-shadow:0 0 12px rgba(201,163,91,.6)}
+
+/* — Zona de grabación: degradado animado al estar lista — */
+.record-zone{background:linear-gradient(135deg,#FBF8F4 0%,#F7F1EA 100%);position:relative;overflow:hidden}
+.record-zone::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;pointer-events:none;
+  background:radial-gradient(circle at 50% 50%, rgba(201,163,91,.08), transparent 40%);
+  animation:zone-breathe 8s ease-in-out infinite}
+@keyframes zone-breathe{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.2);opacity:1}}
+.record-icon{background:linear-gradient(135deg,var(--red),var(--red-d));box-shadow:0 8px 24px -6px rgba(200,16,46,.5),inset 0 0 0 1px rgba(230,205,147,.25)}
+
+/* — Métricas y cards: entrada escalonada armónica — */
+.metrics-row .metric-card{animation:rise-in .55s var(--ease) both}
+.metrics-row .metric-card:nth-child(2){animation-delay:.07s}
+.metrics-row .metric-card:nth-child(3){animation-delay:.14s}
+.metrics-row .metric-card:nth-child(4){animation-delay:.21s}
+.metrics-row .metric-card:nth-child(5){animation-delay:.28s}
+.page.active .card,.arca-page.active .card{animation:rise-in .5s var(--ease) both}
+.page.active .card:nth-of-type(2){animation-delay:.06s}
+.page.active .card:nth-of-type(3){animation-delay:.12s}
+@keyframes rise-in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* — Topbar: filo inferior degradado animado — */
+.topbar::after{content:'';position:absolute;left:0;bottom:-3px;height:3px;width:100%;
+  background:linear-gradient(90deg,var(--red) 0%,var(--gold) 50%,var(--red) 100%);
+  background-size:200% 100%;animation:rail-flow 8s linear infinite}
+
+/* — Botón grabación: pálpito de invitación — */
+.record-controls .btn-primary{animation:invite 3s ease-in-out infinite}
+@keyframes invite{0%,100%{box-shadow:0 4px 12px rgba(200,16,46,.25)}50%{box-shadow:0 8px 28px -4px rgba(200,16,46,.5),0 0 0 4px rgba(200,16,46,.06)}}
+
+/* — Respeto a accesibilidad — */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important}}
 </style>
 </head>
 <body>
@@ -329,7 +539,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
     <!-- REGISTER FORM -->
     <div id="register-box" style="display:none;flex-direction:column;gap:0">
       <div class="login-panel-title">Crear cuenta</div>
-      <div class="login-panel-sub">Nuevo usuario de ArcFast</div>
+      <div class="login-panel-sub">Nuevo usuario de ArcaVision</div>
 
       <div class="login-error" id="reg-error"></div>
 
@@ -370,7 +580,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
     <div class="topbar-brand">
       <div class="logo-mark">AC</div>
       <div>
-        <div class="brand-name">ArcFast</div>
+        <div class="brand-name">ArcaVision</div>
         <div style="font-size:11px;color:var(--g500);letter-spacing:.5px;text-transform:uppercase">Arca Continental</div>
       </div>
     </div>
@@ -400,14 +610,56 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
       <div class="step" data-step="6"><div class="step-num">6</div> Reporte</div>
     </nav>
     <div class="layout">
-      <aside class="sidebar">
-        <div>
+      <aside class="sidebar" id="cliente-sidebar">
+        <!-- Nav items -->
+        <div class="cliente-nav">
+          <div class="cliente-nav-item active" id="cnav-workflow" onclick="clienteNav('workflow',this)">
+            <span class="cnav-icon">⚡</span>
+            <span class="cnav-label">Workflow</span>
+          </div>
+          <div class="cliente-nav-item" id="cnav-historial" onclick="clienteNav('historial',this)">
+            <span class="cnav-icon">📋</span>
+            <span class="cnav-label">Historial</span>
+          </div>
+          <div class="cliente-nav-item" id="cnav-perfil" onclick="clienteNav('perfil',this)">
+            <span class="cnav-icon">👤</span>
+            <span class="cnav-label">Perfil</span>
+          </div>
+        </div>
+
+        <!-- Panel: Workflow (url + reset) -->
+        <div id="cpanel-workflow">
           <div class="sidebar-label" style="margin-bottom:8px">Portal objetivo</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <input type="url" id="inp-url" placeholder="https://portal.walmart.com.mx">
           </div>
+          <button class="btn-reset" onclick="resetCliente()" style="margin-top:auto">↺ Reiniciar</button>
         </div>
-        <button class="btn-reset" onclick="resetCliente()">↺ Reiniciar</button>
+
+        <!-- Panel: Historial -->
+        <div id="cpanel-historial" style="display:none;flex-direction:column;gap:10px">
+          <div class="sidebar-label">Mis últimas órdenes</div>
+          <div id="cliente-hist-list" style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--g700)">
+            <div style="color:var(--g500);font-size:12px;text-align:center;padding:20px 0">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- Panel: Perfil -->
+        <div id="cpanel-perfil" style="display:none;flex-direction:column;gap:14px">
+          <div class="sidebar-label">Mi cuenta</div>
+          <div class="perfil-avatar-wrap">
+            <div class="perfil-avatar" id="perfil-avatar-big">U</div>
+            <div>
+              <div class="perfil-nombre" id="perfil-nombre-txt">—</div>
+              <div class="perfil-empresa" id="perfil-empresa-txt">—</div>
+            </div>
+          </div>
+          <div class="perfil-stat-row">
+            <div class="perfil-stat"><span class="perfil-stat-num" id="perfil-total">0</span><span class="perfil-stat-label">Órdenes</span></div>
+            <div class="perfil-stat"><span class="perfil-stat-num" id="perfil-exito">—</span><span class="perfil-stat-label">Éxito</span></div>
+          </div>
+          <button class="btn-reset" onclick="doLogout()">Cerrar sesión</button>
+        </div>
       </aside>
       <main class="main">
         <!-- CAPTURA -->
@@ -547,6 +799,41 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
 
 <script>
 const API = 'http://localhost:8000';
+// ══ SIDEBAR CLIENTE NAV ══
+function clienteNav(panel, btn) {
+  ['workflow','historial','perfil'].forEach(p => {
+    document.getElementById('cpanel-'+p).style.display = 'none';
+    document.getElementById('cnav-'+p).classList.remove('active');
+  });
+  const el = document.getElementById('cpanel-'+panel);
+  el.style.display = 'flex';
+  el.style.flexDirection = 'column';
+  btn.classList.add('active');
+  if (panel === 'historial') cargarHistorialCliente();
+  if (panel === 'perfil') cargarPerfilCliente();
+}
+function cargarHistorialCliente() {
+  const list = document.getElementById('cliente-hist-list');
+  fetch(`${API}/historial?limit=8`).then(r=>r.json()).then(data=>{
+    if (!data.length){list.innerHTML='<div style="color:var(--g500);font-size:12px;text-align:center;padding:20px 0">Sin órdenes aún</div>';return;}
+    list.innerHTML=data.slice(0,8).map(s=>`
+      <div class="hist-item ${s.errores>0?'err':''}">
+        <div class="hist-item-title">${s.objetivo||'Proceso'}</div>
+        <div class="hist-item-meta">${(s.fecha||'').slice(0,10)} · ${s.pasos_ok||0}/${s.total_pasos||0} ok</div>
+      </div>`).join('');
+  }).catch(()=>{list.innerHTML='<div style="color:var(--g500);font-size:12px;text-align:center;padding:20px 0">Sin conexión</div>';});
+}
+function cargarPerfilCliente() {
+  if (!user) return;
+  document.getElementById('perfil-avatar-big').textContent = (user.email||'U')[0].toUpperCase();
+  document.getElementById('perfil-nombre-txt').textContent = user.email||'—';
+  document.getElementById('perfil-empresa-txt').textContent = user.empresa||'—';
+  fetch(`${API}/historial?limit=50`).then(r=>r.json()).then(data=>{
+    const ok = data.filter(s=>s.errores===0).length;
+    document.getElementById('perfil-total').textContent = data.length;
+    document.getElementById('perfil-exito').textContent = data.length ? Math.round(ok/data.length*100)+'%' : '—';
+  }).catch(()=>{});
+}
 let user = null;
 let selectedRole = 'arca';
 let state = { grabando:false, pausado:false, faseA:null, plan:null, planConf:null, resultados:null };
@@ -888,7 +1175,7 @@ function renderErrChart(res) {
 
 function descargarReporte() {
   const blob=new Blob([JSON.stringify({plan:state.planConf,resultados:state.resultados},null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reporte_arcfast.json'; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reporte_arcavision.json'; a.click();
 }
 
 function resetCliente() {

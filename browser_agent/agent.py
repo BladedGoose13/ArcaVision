@@ -1,19 +1,15 @@
 """
 browser_agent/agent.py
 -----------------------
-Agente principal usando browser_use — más robusto que Playwright puro.
-Fallback a Playwright+Vision si browser_use no está disponible.
+Agente principal usando browser_use exclusivamente.
+Corre en un thread separado con su propio event loop para evitar
+el NotImplementedError de asyncio en Windows con uvicorn.
 """
 
 import asyncio
+import concurrent.futures
 import json
 import os
-import hashlib
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -21,27 +17,145 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-# ─── Motor principal: browser_use ────────────────────────────────────────────
-
-async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
+def _run_browser_use_sync(task: str, api_key: str) -> dict:
     """
-    Ejecuta el plan con browser_use — el agente razona y navega solo,
-    sin pasos ni coordenadas fijas. Mucho más robusto que Playwright manual.
+    Ejecuta browser_use Agent en un thread con su propio event loop.
+    Retorna dict con estado real extraído del AgentHistoryList.
     """
     from browser_use import Agent
     from langchain_anthropic import ChatAnthropic
 
-    todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
+    async def _inner():
+        llm   = ChatAnthropic(model="claude-opus-4-5", api_key=api_key)
+        agent = Agent(
+            task=task,
+            llm=llm,
+            max_failures=2,
+            use_vision=False,
+        )
+        try:
+            result = await agent.run(max_steps=25)
+        finally:
+            # Cierre explícito del browser — browser_use NO lo cierra solo
+            # al terminar run(). Probamos las APIs de varias versiones.
+            await _cerrar_browser(agent)
+
+        errores = result.errors() if hasattr(result, "errors") else []
+        errores = [str(e) for e in errores if e]
+
+        final = ""
+        if hasattr(result, "final_result"):
+            final = result.final_result() or ""
+        if not final:
+            # fallback: último extracted_content no vacío
+            for r in reversed(result.action_results() if hasattr(result, "action_results") else []):
+                if getattr(r, "extracted_content", None):
+                    final = str(r.extracted_content)
+                    break
+
+        completado = result.is_done() if hasattr(result, "is_done") else False
+        pasos_ok    = sum(1 for r in (result.action_results() if hasattr(result, "action_results") else [])
+                         if getattr(r, "error", None) is None)
+        pasos_error = sum(1 for r in (result.action_results() if hasattr(result, "action_results") else [])
+                         if getattr(r, "error", None) is not None)
+
+        return {
+            "completado":   completado,
+            "final":        final,
+            "errores":      errores,
+            "pasos_ok":     pasos_ok,
+            "pasos_error":  pasos_error,
+        }
+
+    return asyncio.run(_inner())
+
+
+async def _cerrar_browser(agent) -> None:
+    """
+    Cierra la sesión de browser que browser_use deja abierta tras run().
+    Compatible con distintas versiones: prueba agent.close(),
+    agent.browser_session, agent.browser y sus métodos close/stop/kill.
+    """
+    import inspect
+
+    async def _intentar(fn):
+        try:
+            res = fn()
+            if inspect.isawaitable(res):
+                await res
+            return True
+        except Exception:
+            return False
+
+    # 1) API moderna: agent.close() cierra todo el stack
+    if hasattr(agent, "close"):
+        if await _intentar(agent.close):
+            print("  🔒 Browser cerrado (agent.close)")
+            return
+
+    # 2) Sesión de browser expuesta directamente
+    for attr in ("browser_session", "browser", "_browser_session", "_browser"):
+        sesion = getattr(agent, attr, None)
+        if sesion is None:
+            continue
+        for metodo in ("close", "stop", "kill"):
+            fn = getattr(sesion, metodo, None)
+            if fn and await _intentar(fn):
+                print(f"  🔒 Browser cerrado ({attr}.{metodo})")
+                return
+
+    print("  ⚠️  No se pudo cerrar el browser automáticamente")
+
+
+def _extraer_json_balanceado(texto: str) -> dict:
+    """
+    Extrae el primer objeto JSON completo del texto balanceando llaves.
+    Reemplaza el regex anterior que no soportaba JSON anidado.
+    """
+    if not texto:
+        return {}
+    inicio = texto.find("{")
+    while inicio != -1:
+        nivel = 0
+        en_str = False
+        escape = False
+        for i in range(inicio, len(texto)):
+            c = texto[i]
+            if escape:
+                escape = False
+                continue
+            if c == "\\":
+                escape = True
+                continue
+            if c == '"':
+                en_str = not en_str
+                continue
+            if en_str:
+                continue
+            if c == "{":
+                nivel += 1
+            elif c == "}":
+                nivel -= 1
+                if nivel == 0:
+                    try:
+                        return json.loads(texto[inicio:i + 1])
+                    except json.JSONDecodeError:
+                        break  # objeto malformado: busca el siguiente "{"
+        inicio = texto.find("{", inicio + 1)
+    return {}
+
+
+async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
+    todas   = {**credenciales, **plan.get("credenciales_obtenidas", {})}
     origen  = plan.get("plataforma_origen", "")
     destino = plan.get("plataforma_destino", "")
     objetivo = plan.get("objetivo", "Ejecutar el proceso aprendido")
 
     creds_texto = "\n".join([f"- {k}: {v}" for k, v in todas.items() if v])
-    mapeo = plan.get("mapeo_campos", [])
     mapeo_texto = "\n".join([
         f"- '{m['campo_origen']}' en {origen} → '{m['campo_destino']}' en {destino}"
-        for m in mapeo
-    ]) if mapeo else "Aprende el mapeo observando la página"
+        for m in plan.get("mapeo_campos", [])
+    ]) or "Aprende el mapeo observando la página"
 
     pasos_texto = "\n".join([
         f"{p['numero']}. [{p['accion'].upper()}] {p['intencion']}"
@@ -49,174 +163,132 @@ async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte
         for p in plan.get("pasos", [])
     ])
 
-    task = f"""
-Eres un agente que automatiza procesos entre dos sistemas web para Arca Continental.
+    n_pasos = len(plan.get("pasos", []))
+    task = f"""Eres un agente que automatiza procesos entre dos sistemas web para Arca Continental.
 
 OBJETIVO: {objetivo}
-
-SISTEMAS:
-- Origen: {origen}
-- Destino: {destino}
+SISTEMAS: Origen={origen} → Destino={destino}
 
 CREDENCIALES:
-{creds_texto if creds_texto else "Ninguna — infiere del contexto"}
+{creds_texto or "Ninguna — infiere del contexto"}
 
 MAPEO DE CAMPOS:
 {mapeo_texto}
 
-PASOS APRENDIDOS (guíate por la intención, no por coordenadas):
+PASOS A EJECUTAR ({n_pasos} en total — guíate por la intención, no por coordenadas):
 {pasos_texto}
 
-INSTRUCCIONES:
-1. Ejecuta el proceso completo de principio a fin
-2. Si un elemento no está visible, haz scroll
-3. Si algo falla, intenta una alternativa razonable
-4. Al terminar, extrae los datos más importantes del resultado
-5. NO pares hasta completar el objetivo o agotar opciones razonables
-6. Reporta cada acción importante
+CÓMO ACTUAR (decide rápido, no te trabes):
+1. Para interactuar usa el texto/label/placeholder del elemento en el índice del DOM. Si el elemento objetivo ya está en la lista, haz click directo — no scrollees "por si acaso".
+2. Solo scrollea si el siguiente paso requiere algo que claramente está más abajo y NO aparece en la lista actual. Un scroll por necesidad, nunca en bucle.
+3. Si una acción falla, no la repitas igual: prueba la alternativa más obvia una vez; si tampoco, marca el paso como fallido y avanza al siguiente.
+4. Si 2 pasos seguidos fallan, o aparece captcha/login inesperado, o la página no carga en ~10 s → TERMINA y reporta el motivo.
+5. Cuando completes todos los pasos → termina de inmediato. No navegues de más.
 
-Al finalizar, resume en JSON qué hiciste y qué datos extrajiste.
-"""
+REGISTRO DE COMPRAS (crítico para el reporte):
+Cada vez que agregues un producto al carrito/orden, anota nombre exacto, precio unitario y cantidad.
+Llena el array "productos" del JSON final con esos datos reales (no inventes precios).
+
+Al finalizar (éxito o fallo) llama a la acción "done" con EXACTAMENTE este JSON:
+{{
+  "estado_final": "completado|parcial|bloqueado",
+  "pasos_ok": <entero, cuántos de los {n_pasos} pasos del plan lograste>,
+  "pasos_error": <entero>,
+  "motivo_parada": "vacío si completado; si no, qué te detuvo",
+  "productos": [
+    {{"nombre": "...", "precio_unitario": 0.0, "cantidad": 1, "sku": "", "estado": "ok"}}
+  ],
+  "datos_extraidos": {{"clave": "valor relevante observado"}}
+}}"""
 
     print(f"\n🤖 browser_use ejecutando: {objetivo}")
     print(f"   Sistemas: {origen} → {destino}\n")
 
-    llm = ChatAnthropic(
-        model="claude-opus-4-5",
-        api_key=os.getenv("ANTHROPIC_API_KEY")
-    )
-
-    agent = Agent(task=task, llm=llm)
-
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    timeout_seg = int(os.getenv("AGENT_TIMEOUT_SEG", "300"))  # 5 min por defecto
+    estado = "error"
+    resultado_texto = ""
+    reporte_agente = {}          # JSON auto-reportado por el agente (done action)
+    errores_agente = []
+    completado_agente = False
     try:
-        result = await agent.run(max_steps=50)
-        resultado_texto = str(result)
-        print(f"\n✅ browser_use completó el proceso")
-        print(f"   {resultado_texto[:200]}...")
-        estado = "ok"
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = loop.run_in_executor(pool, _run_browser_use_sync, task, api_key)
+            info = await asyncio.wait_for(future, timeout=timeout_seg)
+
+        resultado_texto   = info.get("final", "")
+        errores_agente    = info.get("errores", [])
+        completado_agente = info.get("completado", False)
+        reporte_agente    = _extraer_json_balanceado(resultado_texto)
+
+        if completado_agente:
+            estado = "ok"
+            print(f"\n✅ browser_use completó el proceso")
+        else:
+            estado = "parcial" if info.get("pasos_ok", 0) > 0 else "error"
+            motivo = (reporte_agente.get("motivo_parada")
+                      or (errores_agente[0] if errores_agente else "detenido sin completar"))
+            print(f"\n⚠️  browser_use terminó sin completar — {motivo}")
+
+        if resultado_texto:
+            print(f"   Resultado: {resultado_texto[:200]}")
+
+    except asyncio.TimeoutError:
+        resultado_texto = f"Timeout: el agente superó {timeout_seg}s sin terminar"
+        print(f"\n⏱️  Timeout — agente detenido tras {timeout_seg}s")
+        estado = "timeout"
     except Exception as e:
         resultado_texto = f"Error: {e}"
         print(f"\n❌ Error en browser_use: {e}")
         estado = "error"
 
     # Guardar reporte JSON
-    reporte = {
-        "objetivo":          objetivo,
-        "plataforma_origen": origen,
-        "plataforma_destino": destino,
-        "resultado":         resultado_texto,
-        "fecha":             datetime.now().isoformat(),
-        "motor":             "browser_use",
-    }
     Path("sesiones").mkdir(exist_ok=True)
     with open("sesiones/reporte.json", "w", encoding="utf-8") as f:
-        json.dump(reporte, f, indent=2, ensure_ascii=False)
+        json.dump({"objetivo": objetivo, "origen": origen, "destino": destino,
+                   "resultado": resultado_texto, "fecha": datetime.now().isoformat(),
+                   "motor": "browser_use"}, f, indent=2, ensure_ascii=False)
 
-    return [{"paso": 1, "accion": "browser_use", "estado": estado,
-             "datos_extraidos": resultado_texto}]
+    # Datos estructurados auto-reportados por el agente (JSON balanceado)
+    datos_extraidos = reporte_agente.get("datos_extraidos") or {}
+    productos       = reporte_agente.get("productos") or []
+    if not datos_extraidos and resultado_texto:
+        datos_extraidos = {"resumen": resultado_texto[:500]}
 
+    pasos = plan.get("pasos", [])
+    n = len(pasos)
+    if not pasos:
+        return [{"paso": 1, "accion": "browser_use", "estado": estado,
+                 "intencion": objetivo, "datos_extraidos": datos_extraidos,
+                 "productos": productos}]
 
-# ─── Fallback: Playwright + Vision ────────────────────────────────────────────
-
-async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte: str) -> list:
-    """
-    Fallback cuando browser_use no está instalado.
-    Playwright paso a paso con Claude Vision para localizar elementos.
-    """
-    import base64
-    from io import BytesIO
-    from PIL import Image
-    from playwright.async_api import async_playwright
-    from anthropic import Anthropic
-
-    client = Anthropic()
-
-    async def analizar_pagina(page, intencion: str) -> dict:
-        screenshot = await page.screenshot()
-        img = Image.open(BytesIO(screenshot))
-        img.thumbnail((1280, 720))
-        buf = BytesIO()
-        img.save(buf, format="JPEG", quality=75)
-        sc_b64 = base64.b64encode(buf.getvalue()).decode()
-
-        html = await page.evaluate("""() => {
-            const els = [];
-            document.querySelectorAll('input,button,a,select,textarea,[role="button"]').forEach((el,i) => {
-                const r = el.getBoundingClientRect();
-                if (r.width > 0 && r.height > 0)
-                    els.push({tag:el.tagName.toLowerCase(),texto:(el.textContent||el.value||el.placeholder||'').trim().slice(0,40),
-                              nombre:el.name||el.id||'',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)});
-            });
-            return JSON.stringify(els.slice(0,25));
-        }""")
-
-        resp = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=200,
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": sc_b64}},
-                {"type": "text", "text": f"Elementos: {html}\nTarea: {intencion}\nResponde SOLO JSON: {{\"encontrado\":bool,\"x\":int,\"y\":int,\"confianza\":float}}"}
-            ]}]
-        )
-        raw = resp.content[0].text.strip()
-        if raw.startswith("```"): raw = raw.split("```")[1].lstrip("json").strip()
-        return json.loads(raw)
+    # ── Mapeo honesto de estado por paso del PLAN (no por acciones del agente) ──
+    if completado_agente:
+        n_ok = n
+    elif estado == "error":
+        n_ok = 0
+    else:  # parcial / timeout → usa los pasos_ok auto-reportados, acotado al plan
+        n_ok = max(0, min(n - 1, int(reporte_agente.get("pasos_ok", 0) or 0)))
 
     resultados = []
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
-        page = await browser.new_page(viewport={"width": 1280, "height": 720})
-
-        for paso in plan.get("pasos", []):
-            accion   = paso["accion"]
-            intencion = paso["intencion"]
-            valor    = paso.get("valor", "")
-            todas    = {**credenciales, **plan.get("credenciales_obtenidas", {})}
-            for k, v in todas.items():
-                if isinstance(v, str): valor = valor.replace(f"{{{k}}}", v)
-
-            res = {"paso": paso["numero"], "accion": accion, "estado": "error"}
-            try:
-                if accion == "navegar":
-                    await page.goto(valor, wait_until="domcontentloaded", timeout=15000)
-                    await page.wait_for_timeout(1500)
-                    res["estado"] = "ok"
-                elif accion in ("click", "escribir", "seleccionar"):
-                    loc = await analizar_pagina(page, intencion)
-                    if loc.get("encontrado") and loc.get("confianza", 0) >= 0.5:
-                        x, y = loc["x"], loc["y"]
-                        if accion == "click":
-                            await page.mouse.click(x, y)
-                        elif accion == "escribir":
-                            await page.mouse.click(x, y)
-                            await page.keyboard.press("Control+a")
-                            await page.keyboard.type(valor, delay=40)
-                        res["estado"] = "ok"
-                    else:
-                        res["estado"] = "advertencia"
-                elif accion == "extraer":
-                    texto = await page.evaluate("() => document.body.innerText.substring(0,2000)")
-                    res["datos_extraidos"] = texto
-                    res["estado"] = "ok"
-                elif accion == "esperar":
-                    await page.wait_for_timeout(int(valor or 1) * 1000)
-                    res["estado"] = "ok"
-                elif accion == "verificar":
-                    loc = await analizar_pagina(page, intencion)
-                    res["estado"] = "ok" if loc.get("encontrado") else "advertencia"
-            except Exception as e:
-                print(f"    ❌ Paso {paso['numero']}: {e}")
-
-            icono = "✅" if res["estado"]=="ok" else "⚠️ " if res["estado"]=="advertencia" else "❌"
-            print(f"  {icono} Paso {paso['numero']}: {intencion[:65]}")
-            resultados.append(res)
-
-            if res["estado"] == "error" and paso["numero"] <= 2:
-                print("  🚨 Error crítico — abortando")
-                break
-
-        await browser.close()
-
+    for i, p in enumerate(pasos):
+        es_ultimo = (i == n - 1)
+        if i < n_ok:
+            paso_estado = "ok"
+        elif i == n_ok and estado in ("timeout", "error", "parcial"):
+            paso_estado = estado          # el paso donde se detuvo lleva la causa
+        else:
+            paso_estado = "error"
+        resultados.append({
+            "paso":            p["numero"],
+            "accion":          p["accion"],
+            "intencion":       p["intencion"],
+            "estado":          paso_estado,
+            "detalle_error":   (errores_agente[0][:200] if errores_agente and paso_estado != "ok" else ""),
+            "datos_extraidos": datos_extraidos if es_ultimo else None,
+            "productos":       productos if es_ultimo else None,
+        })
     return resultados
 
 
@@ -224,31 +296,26 @@ async def ejecutar_con_playwright(plan: dict, credenciales: dict, email_reporte:
 
 async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
     """
-    Intenta browser_use primero. Si no está instalado, usa Playwright+Vision.
-    Después genera reporte, Excel, guarda en SQLite y envía email.
+    Ejecuta el plan usando browser_use y luego genera reportes, guarda en SQLite
+    y envía email.
     """
     print(f"\n🤖 Ejecutando: {plan.get('objetivo')}")
 
-    # Intentar browser_use
-    try:
-        import browser_use  # noqa
-        resultados = await ejecutar_con_browser_use(plan, credenciales, email_reporte)
-        motor = "browser_use"
-    except ImportError:
-        print("  ℹ️  browser_use no instalado — usando Playwright+Vision")
-        resultados = await ejecutar_con_playwright(plan, credenciales, email_reporte)
-        motor = "playwright"
+    resultados = await ejecutar_con_browser_use(plan, credenciales, email_reporte)
+    motor = "browser_use"
 
     ok = sum(1 for r in resultados if r["estado"] == "ok")
     print(f"\n{'─'*50}")
     print(f"  Motor   : {motor}")
     print(f"  Resultado: {ok}/{len(resultados)} pasos exitosos")
 
-    # Post-procesamiento
     datos_extraidos = {
-        f"paso_{r['paso']}": r["datos_extraidos"]
-        for r in resultados if r.get("datos_extraidos")
+        f"paso_{r.get('paso', i)}": r["datos_extraidos"]
+        for i, r in enumerate(resultados) if r.get("datos_extraidos")
     }
+
+    # Productos reales auto-reportados por el agente (para el Excel de compras)
+    productos = next((r["productos"] for r in resultados if r.get("productos")), [])
 
     # Guardar en SQLite
     try:
@@ -263,74 +330,44 @@ async def ejecutar(plan: dict, credenciales: dict, email_reporte: str) -> list:
     except Exception as e:
         print(f"  ⚠️  SQLite no disponible: {e}")
 
-    # Generar Excel + ticket HTML
+    # Generar los tres reportes: Excel compras, PDF IA, Excel errores
+    rutas = {}
+    datos_reporte = {
+        "objetivo":        plan.get("objetivo", "Proceso"),
+        "origen":          plan.get("plataforma_origen", ""),
+        "destino":         plan.get("plataforma_destino", ""),
+        "resultados":      resultados,
+        "datos_extraidos": datos_extraidos,
+        "productos":       productos,
+        "email":           email_reporte,
+        "fecha":           datetime.now().isoformat(),
+        "motor":           motor,
+        "iteraciones":     len(resultados),
+        "plan":            plan,
+    }
     try:
-        from postprocessing.reporte import generar_excel, generar_ticket_html, guardar_ticket
-        datos_reporte = {
-            "objetivo":  plan.get("objetivo", "Proceso"),
-            "origen":    plan.get("plataforma_origen", ""),
-            "destino":   plan.get("plataforma_destino", ""),
-            "resultados": resultados,
-            "datos_extraidos": datos_extraidos,
-            "fecha":     datetime.now().isoformat(),
-        }
-        excel_path  = generar_excel(datos_reporte)
-        ticket_html = generar_ticket_html(datos_reporte)
-        ticket_path = guardar_ticket(ticket_html)
-        print(f"  📊 Excel:  {excel_path}")
-        print(f"  🎫 Ticket: {ticket_path}")
+        from postprocessing.reporte import generar_todos_los_reportes
+        rutas = generar_todos_los_reportes(datos_reporte)
+        print(f"  📦 Excel compras : {rutas.get('excel_compras')}")
+        print(f"  📄 PDF reporte IA: {rutas.get('pdf_reporte')}")
+        print(f"  📊 Excel errores : {rutas.get('excel_errores')}")
     except Exception as e:
-        excel_path  = None
-        ticket_path = None
         print(f"  ⚠️  Reportes no generados: {e}")
 
-    # Email
-    _enviar_email(email_reporte, plan, resultados, datos_extraidos, excel_path)
+    # Pipeline completo de ticket: extrae pedido, SQLite, historial, Sheets, email
+    try:
+        from postprocessing.reporte import procesar_ticket_completo
+        ticket_info = procesar_ticket_completo(
+            datos_reporte=datos_reporte,
+            email_cliente=email_reporte,
+            excel_path=rutas.get("excel_compras"),
+            sesion_id=None,
+        )
+        print(f"  🎫 Ticket: {ticket_info.get('ticket_path')}")
+    except Exception as e:
+        print(f"  ⚠️  Ticket no generado: {e}")
 
     return resultados
 
 
-def _enviar_email(destinatario: str, plan: dict, resultados: list,
-                  datos: dict, excel_path: str = None):
-    remitente = os.getenv("EMAIL_REMITENTE", "")
-    password  = os.getenv("EMAIL_PASSWORD", "")
-    if not remitente or not password or not destinatario:
-        print(f"  📄 Email desactivado — agrega EMAIL_REMITENTE y EMAIL_PASSWORD al .env")
-        return
-
-    ok    = sum(1 for r in resultados if r["estado"] == "ok")
-    total = len(resultados)
-    fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
-
-    cuerpo = f"""
-ArcFast — Arca Continental
-Reporte de ejecución automática
-
-Proceso : {plan.get('objetivo', '')}
-Fecha   : {fecha}
-Resultado: {ok}/{total} pasos exitosos
-
-Datos extraídos:
-{json.dumps(datos, indent=2, ensure_ascii=False)[:1500]}
-"""
-    msg = MIMEMultipart()
-    msg["From"]    = remitente
-    msg["To"]      = destinatario
-    msg["Subject"] = f"ArcFast — Reporte {fecha} — {ok}/{total} pasos"
-    msg.attach(MIMEText(cuerpo, "plain"))
-
-    if excel_path and Path(excel_path).exists():
-        with open(excel_path, "rb") as f:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(f.read())
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", "attachment; filename=reporte_arcfast.xlsx")
-            msg.attach(part)
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(remitente, password)
-            server.sendmail(remitente, destinatario, msg.as_string())
-        print(f"  📧 Reporte enviado a {destinatario}")
-    except Exception as e:
-        print(f"  ⚠️  Email no enviado: {e}")
+# _enviar_email reemplazado por procesar_ticket_completo en postprocessing/reporte.py

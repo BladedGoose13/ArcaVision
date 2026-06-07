@@ -6,10 +6,15 @@ con Bayesian confidence scores por campo.
 """
 
 import json
+import os
 import anthropic
 from shared.schemas import FieldMapping, WorkflowConfirmado
 
-client = anthropic.Anthropic()
+def _get_client():
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY no está configurada en el entorno")
+    return anthropic.Anthropic(api_key=api_key)
 
 UMBRAL_DEFAULT = 0.70   # Campos bajo este umbral se marcan como flag
 
@@ -54,6 +59,7 @@ def generar_workflow(transcripcion: str, url_portal: str, umbral: float = UMBRAL
         url_portal=url_portal,
     )
 
+    client = _get_client()
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=1000,
@@ -84,7 +90,6 @@ def workflow_desde_mock() -> WorkflowConfirmado:
     Devuelve un WorkflowConfirmado desde el mock — útil para desarrollo
     sin necesidad de llamar a la API ni tener la grabación lista.
     """
-    import json, os
     mock_path = os.path.join(os.path.dirname(__file__), "../data/mock/mock_data.json")
     with open(mock_path) as f:
         data = json.load(f)

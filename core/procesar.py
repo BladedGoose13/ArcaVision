@@ -1,114 +1,130 @@
+"""
+core/procesar.py — usado por backend/api.py (frontend HTML)
+------------------------------------------------------------
+Fase A: analizar_sesion   → screenshots + audio → plan + preguntas para el frontend
+Fase B: completar_plan    → recibe respuestas del HTML → cierra el plan
+"""
 import json
-import base64
 import os
-import wave
 from pathlib import Path
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
 load_dotenv()
-client = Anthropic()
 
+_api_key = os.getenv("ANTHROPIC_API_KEY")
+if not _api_key:
+    raise RuntimeError("ANTHROPIC_API_KEY no está configurada en el entorno")
+client = Anthropic(api_key=_api_key)
+
+
+# ─── Utilidad: parseo robusto de JSON de Claude ───────────────────────────────
+
+def _parsear_json(raw: str) -> dict:
+    """
+    Extrae el primer objeto JSON completo de la respuesta de Claude.
+    Balancea llaves (soporta JSON anidado) e ignora texto, code fences o
+    comentarios alrededor. Reemplaza el frágil split('```')+lstrip('json'),
+    que removía caracteres sueltos y fallaba si había texto extra.
+    """
+    if not raw:
+        return {}
+    inicio = raw.find("{")
+    while inicio != -1:
+        nivel = 0
+        en_str = False
+        escape = False
+        for i in range(inicio, len(raw)):
+            c = raw[i]
+            if escape:
+                escape = False
+                continue
+            if c == "\\":
+                escape = True
+                continue
+            if c == '"':
+                en_str = not en_str
+                continue
+            if en_str:
+                continue
+            if c == "{":
+                nivel += 1
+            elif c == "}":
+                nivel -= 1
+                if nivel == 0:
+                    try:
+                        return json.loads(raw[inicio:i + 1])
+                    except json.JSONDecodeError:
+                        break
+        inicio = raw.find("{", inicio + 1)
+    return {}
+
+
+# ─── Audio ────────────────────────────────────────────────────────────────────
 
 def transcribir_audio(audio_path: str) -> str:
-    """Transcribe el audio usando Groq Whisper."""
-    print("  🎤 Transcribiendo audio con Groq Whisper...")
+    if not audio_path or not Path(audio_path).exists():
+        return ""
     try:
         from groq import Groq
         groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         with open(audio_path, "rb") as f:
             transcript = groq_client.audio.transcriptions.create(
-                model="whisper-large-v3",
-                file=f,
-                language="es"
+                model="whisper-large-v3", file=f, language="es",
             )
-        return transcript.text
+        return transcript.text.strip()
     except Exception as e:
-        print(f"  ⚠️  Error transcribiendo: {e}")
-        print("  Ingresa manualmente lo que explicaste:")
-        return input("  Transcripción: ").strip()
+        print(f"  ⚠️  Groq no disponible: {e}")
+        return ""
 
 
-def hacer_preguntas_inteligentes(plan_inicial: dict, transcripcion: str) -> dict:
-    print("\n🤔 Analizando qué información falta...")
-    respuesta = client.messages.create(
-        model="claude-opus-4-5",
-        max_tokens=2000,
-        messages=[{
-            "role": "user",
-            "content": f"""Eres un agente inteligente que aprendió un proceso web observando a un usuario.
+# ─── Fase A ───────────────────────────────────────────────────────────────────
 
-Plan generado:
-{json.dumps(plan_inicial, indent=2, ensure_ascii=False)}
-
-El usuario explicó: "{transcripcion}"
-
-Identifica QUÉ información genuinamente te falta para ejecutar este proceso.
-
-REGLAS:
-- NO preguntes sobre botones, menús, navegación — eso lo ves en pantalla
-- NO preguntes si "iniciar sesión" es "login" — eso lo sabes
-- SÍ pregunta sobre: credenciales, datos específicos que el usuario escribió y no se veían
-- Máximo 3 preguntas. Si no falta nada, deja preguntas vacío.
-
-Responde SOLO JSON:
-{{
-  "preguntas": [
-    {{
-      "campo": "nombre interno del dato",
-      "pregunta": "pregunta clara para el usuario",
-      "por_que": "por qué no pudiste inferirlo"
-    }}
-  ],
-  "ya_se": ["cosas que aprendiste sin preguntar"]
-}}"""
-        }]
-    )
-    raw = respuesta.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip("json").strip()
-    return json.loads(raw)
-
-
-def procesar_sesion(eventos: list, audio_path: str) -> dict:
-    print("\n🧠 Procesando sesión...")
-
+def analizar_sesion(eventos: list, audio_path: str) -> dict:
+    """
+    Retorna {"plan": {...}, "preguntas": [...], "ya_se": [...]}
+    para que el frontend HTML los muestre. Nunca llama input().
+    """
     transcripcion = transcribir_audio(audio_path)
-    print(f"  ✅ '{transcripcion[:100]}{'...' if len(transcripcion) > 100 else ''}'")
 
     con_screenshot = [e for e in eventos if e.get("screenshot")]
     if not con_screenshot:
-        raise ValueError("No hay screenshots. ¿Se grabó correctamente?")
+        raise ValueError("No hay screenshots en la grabación. ¿Se grabó correctamente?")
 
     paso = max(1, len(con_screenshot) // 10)
     keyframes = con_screenshot[::paso][:10]
-    print(f"  📸 {len(keyframes)} screenshots de {len(eventos)} eventos")
 
+    # ── Paso 1: Claude analiza screenshots + audio y genera el plan ───────────
     contenido = []
     for i, evento in enumerate(keyframes):
         contenido.append({
             "type": "image",
-            "source": {"type": "base64", "media_type": "image/jpeg", "data": evento["screenshot"]}
+            "source": {"type": "base64", "media_type": "image/jpeg",
+                       "data": evento["screenshot"]},
         })
         contenido.append({
             "type": "text",
-            "text": f"Momento {i+1}: {evento['tipo']} en ({evento.get('x','')}, {evento.get('y','')})"
+            "text": f"Momento {i+1}: {evento['tipo']} en ({evento.get('x','')}, {evento.get('y','')})",
         })
 
-    contenido.append({
-        "type": "text",
-        "text": f"""
-El usuario explicó mientras trabajaba:
-"{transcripcion}"
+    contexto_audio = (
+        f'\nEl usuario explicó mientras trabajaba:\n"{transcripcion}"\n'
+        if transcripcion
+        else "\n(Sin audio — infiere el proceso solo desde las imágenes)\n"
+    )
 
+    contenido.append({"type": "text", "text": f"""{contexto_audio}
 Analiza TODO y genera el plan. El usuario trabajó con DOS sistemas:
 - ORIGEN: donde están los datos
 - DESTINO: donde se registran los datos
 
 Los campos pueden tener nombres DISTINTOS en cada sistema — aprende el mapeo real.
 NUNCA uses selectores CSS ni IDs. Describe elementos visualmente.
+En "credenciales_necesarias" incluye SOLO datos que el bot NO puede ver en pantalla
+(contraseñas, tokens, campos que aparecen con asteriscos o que el usuario escribió
+sin que la cámara lo capturara).
 
-Responde SOLO este JSON:
+Responde SOLO este JSON sin texto adicional:
 {{
   "plataforma_origen": "nombre del sistema origen",
   "plataforma_destino": "nombre del sistema destino",
@@ -117,10 +133,11 @@ Responde SOLO este JSON:
     {{
       "campo_origen": "nombre en origen",
       "campo_destino": "nombre en destino",
-      "descripcion": "qué representa"
+      "descripcion": "qué representa",
+      "confianza": 0.95
     }}
   ],
-  "credenciales_necesarias": ["datos que el bot necesita pero no vio"],
+  "credenciales_necesarias": ["UN item por credencial, ej: 'usuario_arcavision', 'password_arcavision'"],
   "pasos": [
     {{
       "numero": 1,
@@ -131,69 +148,144 @@ Responde SOLO este JSON:
       "validacion": "cómo saber que funcionó"
     }}
   ],
-  "excepciones": [
-    {{"situacion": "qué puede salir mal", "accion": "qué hacer"}}
-  ],
-  "reporte_incluir": ["datos a incluir en el reporte por correo"]
-}}"""
-    })
+  "excepciones": [{{"situacion": "qué puede salir mal", "accion": "qué hacer"}}],
+  "reporte_incluir": ["datos a incluir en el reporte"]
+}}"""})
 
-    print("  🤖 Claude analizando...")
-    respuesta = client.messages.create(
+    resp_plan = client.messages.create(
         model="claude-opus-4-5",
         max_tokens=16000,
-        messages=[{"role": "user", "content": contenido}]
+        messages=[{"role": "user", "content": contenido}],
     )
 
-    raw = respuesta.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip("json").strip()
-    plan_inicial = json.loads(raw)
+    plan = _parsear_json(resp_plan.content[0].text)
+    if not plan:
+        raise ValueError("Claude no devolvió un plan JSON válido")
 
-    analisis = hacer_preguntas_inteligentes(plan_inicial, transcripcion)
+    # ── Paso 2: preguntas inteligentes (inspirado en cerebro/procesar.py) ──────
+    analisis = hacer_preguntas_inteligentes(plan, transcripcion)
 
-    if analisis.get("ya_se"):
-        print(f"\n  ✅ Aprendí sin preguntar:")
-        for cosa in analisis["ya_se"]:
-            print(f"     • {cosa}")
+    return {
+        "plan":      plan,
+        "preguntas": analisis["preguntas"],
+        "ya_se":     analisis.get("ya_se", []),
+    }
 
-    credenciales_obtenidas = {}
-    preguntas = analisis.get("preguntas", [])
 
-    if preguntas:
-        print(f"\n  ❓ Necesito algunos datos que no pude ver:\n")
-        for p in preguntas:
-            print(f"  Por qué lo necesito: {p['por_que']}")
-            valor = input(f"  {p['pregunta']}: ").strip()
-            credenciales_obtenidas[p["campo"]] = valor
-            print()
-        plan_inicial["credenciales_obtenidas"] = credenciales_obtenidas
-    else:
-        print("\n  ✅ Entendí todo — no necesito preguntar nada más")
+def hacer_preguntas_inteligentes(plan_inicial: dict, transcripcion: str) -> dict:
+    """
+    Identifica qué información genuinamente falta para ejecutar el proceso.
+    Retorna {"preguntas": [...], "ya_se": [...]} — sin llamar input().
+    Cada pregunta es UN solo dato (nunca mezcla usuario y contraseña en una).
+    """
+    respuesta = client.messages.create(
+        model="claude-opus-4-5",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": f"""Eres un agente inteligente que aprendió un proceso web observando a un usuario.
+
+Plan generado:
+{json.dumps(plan_inicial, indent=2, ensure_ascii=False)}
+
+El usuario explicó: "{transcripcion or '(sin audio)'}"
+
+Identifica QUÉ información genuinamente te falta para ejecutar este proceso.
+
+REGLAS:
+- NO preguntes sobre botones, menús ni navegación — eso lo ves en pantalla
+- NO preguntes datos que son visibles en los screenshots (nombres de producto, fechas, cantidades)
+- SÍ pregunta sobre: credenciales, datos que el usuario escribió y no se veían (campos con asteriscos)
+- Cada pregunta cubre UN SOLO dato — nunca preguntes "usuario y contraseña" juntos
+- Si el plan lista credenciales_necesarias, genera una pregunta por cada item de esa lista
+- Máximo 4 preguntas. Si no falta nada, deja preguntas vacío.
+- Indica es_password: true para contraseñas, tokens y claves secretas
+
+Responde SOLO JSON:
+{{
+  "preguntas": [
+    {{
+      "campo": "nombre_interno_sin_espacios",
+      "pregunta": "Pregunta clara y específica al sistema detectado",
+      "por_que": "por qué no pudiste inferirlo de los screenshots",
+      "es_password": false
+    }}
+  ],
+  "ya_se": ["dato concreto que aprendí sin necesitar preguntar"]
+}}"""}],
+    )
+
+    data = _parsear_json(respuesta.content[0].text)
+    if not data:
+        data = {"preguntas": [], "ya_se": []}
+    data.setdefault("preguntas", [])
+    data.setdefault("ya_se", [])
+
+    # Asegurar es_password por nombre del campo si Claude no lo incluyó
+    for p in data.get("preguntas", []):
+        if "es_password" not in p:
+            p["es_password"] = any(
+                w in p.get("campo", "").lower()
+                for w in ["password", "contraseña", "clave", "pass", "token", "secret", "pwd"]
+            )
+
+    return data
+
+
+# ─── Filtro de artefactos de grabación ───────────────────────────────────────
+
+_PATRONES_ARCAVISION = (
+    "localhost", "127.0.0.1", "0.0.0.0", "arcavision", "arcfast", ":8000", ":8080",
+    "regresar a la app", "volver a la app", "cerrar grabación", "detener grabación",
+)
+
+def _filtrar_pasos_grabador(plan: dict) -> None:
+    """
+    Elimina del final de plan["pasos"] cualquier paso que corresponda a
+    navegar de vuelta a la interfaz ArcaVision — artefacto de cuando el usuario
+    pulsa 'Detener grabación' y el grabador captura ese clic/navegación.
+    Solo borra pasos del final (tail) para no tocar el proceso real.
+    """
+    pasos = plan.get("pasos", [])
+    if not pasos:
+        return
+    cola = min(3, len(pasos))
+    nuevos = list(pasos)
+    while nuevos and cola > 0:
+        ultimo = nuevos[-1]
+        texto = " ".join([
+            str(ultimo.get("valor", "")),
+            str(ultimo.get("intencion", "")),
+            str(ultimo.get("validacion", "")),
+        ]).lower()
+        if any(p in texto for p in _PATRONES_ARCAVISION):
+            nuevos.pop()
+            cola -= 1
+        else:
+            break
+    plan["pasos"] = nuevos
+
+
+# ─── Fase B ───────────────────────────────────────────────────────────────────
+
+def completar_plan(resultado_fase_a: dict, respuestas_usuario: dict) -> tuple:
+    """
+    Recibe las respuestas del frontend HTML y las integra en el plan.
+    Retorna (plan_completo, lista_de_advertencias).
+    """
+    plan = resultado_fase_a.get("plan", resultado_fase_a)
+
+    advertencias = []
+    for p in resultado_fase_a.get("preguntas", []):
+        if not respuestas_usuario.get(p["campo"]):
+            advertencias.append(f"Falta respuesta para: {p['pregunta']}")
+
+    plan["credenciales_obtenidas"] = respuestas_usuario
+
+    # Eliminar pasos finales que sean artefactos del grabador (el usuario
+    # vuelve a la app ArcaVision para detener la grabación — no son parte del proceso real)
+    _filtrar_pasos_grabador(plan)
 
     Path("sesiones").mkdir(exist_ok=True)
     with open("sesiones/plan.json", "w", encoding="utf-8") as f:
-        json.dump(plan_inicial, f, indent=2, ensure_ascii=False)
+        json.dump(plan, f, indent=2, ensure_ascii=False)
 
-    print(f"\n{'─'*50}")
-    print(f"  Origen  : {plan_inicial.get('plataforma_origen')}")
-    print(f"  Destino : {plan_inicial.get('plataforma_destino')}")
-    print(f"  Pasos   : {len(plan_inicial.get('pasos', []))}")
-    print(f"  Mapeo   : {len(plan_inicial.get('mapeo_campos', []))} campos")
-    print(f"{'─'*50}")
-
-    return plan_inicial
-
-# Alias para compatibilidad con api.py
-def analizar_sesion(eventos: list, audio_path: str) -> dict:
-    plan = procesar_sesion(eventos, audio_path)
-    return {
-        "plan": plan,
-        "preguntas": [],
-        "ya_se": []
-    }
-
-def completar_plan(resultado_fase_a: dict, respuestas_usuario: dict) -> tuple:
-    plan = resultado_fase_a.get("plan", resultado_fase_a)
-    plan["credenciales_obtenidas"] = respuestas_usuario
-    return plan, []
+    return plan, advertencias
