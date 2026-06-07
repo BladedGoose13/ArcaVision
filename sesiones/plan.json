@@ -1,0 +1,157 @@
+{
+  "plataforma_origen": "Arca Continental (arcacontal.com)",
+  "plataforma_destino": "ARCFAST (127.0.0.1:8000)",
+  "objetivo": "Buscar noticias de inversionistas del año 2015 en la página de Arca Continental, extraer el texto, hora y ciudad de una noticia y registrar el proceso en ARCFAST",
+  "mapeo_campos": [
+    {
+      "campo_origen": "Título de noticia (ej: Primer Trimestre 2015)",
+      "campo_destino": "Captura del workflow",
+      "descripcion": "Nombre del reporte trimestral encontrado"
+    },
+    {
+      "campo_origen": "Hora (ej: 10:00 AM Hora de México/Monterrey)",
+      "campo_destino": "Datos extraídos",
+      "descripcion": "Hora y zona horaria del evento"
+    },
+    {
+      "campo_origen": "Ciudad (México/Monterrey)",
+      "campo_destino": "Datos extraídos",
+      "descripcion": "Ciudad asociada al evento"
+    }
+  ],
+  "credenciales_necesarias": [
+    "usuario@arca.com (credencial de acceso a ARCFAST visible en pantalla)"
+  ],
+  "pasos": [
+    {
+      "numero": 1,
+      "sistema": "destino",
+      "intencion": "Iniciar la grabación del workflow en ARCFAST",
+      "accion": "verificar",
+      "valor": "",
+      "validacion": "Se muestra el indicador rojo GRABANDO... en la pantalla"
+    },
+    {
+      "numero": 2,
+      "sistema": "origen",
+      "intencion": "Abrir la página principal de Arca Continental",
+      "accion": "navegar",
+      "valor": "https://www.arcacontal.com/es",
+      "validacion": "Se muestra el logo de Arca Continental y el menú de navegación con opciones como Acerca de Nosotros, Inversionistas, etc."
+    },
+    {
+      "numero": 3,
+      "sistema": "origen",
+      "intencion": "Hacer clic en la sección Prensa del menú superior",
+      "accion": "click",
+      "valor": "Prensa",
+      "validacion": "Se despliega un submenú con opciones Noticias y Buscador"
+    },
+    {
+      "numero": 4,
+      "sistema": "origen",
+      "intencion": "Hacer clic en la opción Buscador dentro del menú de Prensa",
+      "accion": "click",
+      "valor": "Buscador",
+      "validacion": "Se abre la página de resultados de búsqueda con filtros de Sección y País"
+    },
+    {
+      "numero": 5,
+      "sistema": "origen",
+      "intencion": "Marcar la casilla de Inversionistas en la sección de filtros del lado izquierdo",
+      "accion": "click",
+      "valor": "Inversionistas",
+      "validacion": "La casilla de Inversionistas queda seleccionada y se filtran los resultados"
+    },
+    {
+      "numero": 6,
+      "sistema": "origen",
+      "intencion": "Esperar a que carguen los resultados filtrados",
+      "accion": "esperar",
+      "valor": "3 segundos",
+      "validacion": "Se muestran resultados de reportes trimestrales con fechas y horas"
+    },
+    {
+      "numero": 7,
+      "sistema": "origen",
+      "intencion": "Hacer clic en el botón Ver más al final de la lista de resultados",
+      "accion": "click",
+      "valor": "Ver más",
+      "validacion": "Se cargan más resultados de reportes trimestrales anteriores"
+    },
+    {
+      "numero": 8,
+      "sistema": "origen",
+      "intencion": "Continuar haciendo clic en Ver más hasta encontrar noticias del año 2015",
+      "accion": "click",
+      "valor": "Ver más",
+      "validacion": "Aparecen resultados como Primer Trimestre 2015, Cuarto Trimestre 2015, etc."
+    },
+    {
+      "numero": 9,
+      "sistema": "origen",
+      "intencion": "Localizar una noticia del año 2015 como Primer Trimestre 2015",
+      "accion": "verificar",
+      "valor": "",
+      "validacion": "Se visualiza el texto Primer Trimestre 2015 con su hora 10:00 AM Hora de México/Monterrey"
+    },
+    {
+      "numero": 10,
+      "sistema": "origen",
+      "intencion": "Extraer el texto del título de la noticia del 2015",
+      "accion": "extraer",
+      "valor": "Primer Trimestre 2015",
+      "validacion": "Se copia el texto del título de la noticia"
+    },
+    {
+      "numero": 11,
+      "sistema": "origen",
+      "intencion": "Extraer la hora y ciudad asociada a la noticia",
+      "accion": "extraer",
+      "valor": "10:00 AM Hora de México/Monterrey",
+      "validacion": "Se copia la información de hora y ubicación"
+    },
+    {
+      "numero": 12,
+      "sistema": "destino",
+      "intencion": "Regresar a la ventana de ARCFAST para finalizar la grabación",
+      "accion": "click",
+      "valor": "Pestaña de ARCFAST en el navegador",
+      "validacion": "Se muestra la interfaz de ARCFAST con el botón Terminar y analizar"
+    },
+    {
+      "numero": 13,
+      "sistema": "destino",
+      "intencion": "Hacer clic en el botón rojo Terminar y analizar para finalizar la captura",
+      "accion": "click",
+      "valor": "Terminar y analizar",
+      "validacion": "El workflow pasa a la siguiente etapa de PREGUNTAS o REVISIÓN"
+    }
+  ],
+  "excepciones": [
+    {
+      "situacion": "El botón Ver más no carga más resultados o la página tarda en responder",
+      "accion": "Esperar 5 segundos adicionales y volver a intentar hacer clic en Ver más"
+    },
+    {
+      "situacion": "No se encuentran noticias del 2015 después de varios clics en Ver más",
+      "accion": "Verificar si hay más páginas disponibles o usar el campo de búsqueda para filtrar por 2015"
+    },
+    {
+      "situacion": "La sesión de ARCFAST expira durante la grabación",
+      "accion": "Volver a iniciar sesión con usuario@arca.com y reiniciar la grabación del workflow"
+    },
+    {
+      "situacion": "El menú de Prensa no se despliega correctamente",
+      "accion": "Refrescar la página y volver a hacer clic en Prensa en el menú superior"
+    }
+  ],
+  "reporte_incluir": [
+    "Título de la noticia encontrada (ej: Primer Trimestre 2015)",
+    "Hora del evento (ej: 10:00 AM)",
+    "Ciudad/Zona horaria (ej: México/Monterrey)",
+    "URL de la página donde se encontró la información",
+    "Fecha y hora de ejecución del proceso",
+    "Estado del workflow en ARCFAST"
+  ]
+}
