@@ -10,12 +10,16 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import asyncio
+import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+from database.db import guardar_plan, guardar_sesion, cargar_plan_activo, obtener_historial, obtener_estadisticas
 
 app = FastAPI(title="ArcFast API")
 
@@ -34,12 +38,14 @@ if os.path.exists(frontend_path):
 
 # ─── Estado en memoria (una sesión a la vez para el hack) ─────────────────────
 session = {
-    "grabador":  None,
-    "sesion":    None,
-    "fase_a":    None,
-    "plan":      None,
+    "grabador":   None,
+    "sesion":     None,
+    "fase_a":     None,
+    "plan":       None,
+    "plan_id":    None,
     "url_portal": "",
-    "email":     "",
+    "email":      "",
+    "t_inicio":   None,
 }
 
 
@@ -157,6 +163,10 @@ def completar(req: CompletarReq):
         from core.procesar import completar_plan
         plan, errores = completar_plan(fase_a, req.respuestas)
         session["plan"] = plan
+        # Guardar plan en DB
+        plan_id = guardar_plan(plan)
+        session["plan_id"] = plan_id
+        session["t_inicio"] = time.time()
         return plan
     except Exception as e:
         return {"error": f"Error completando plan: {e}"}
@@ -168,6 +178,15 @@ def ejecutar_agente(req: EjecutarReq):
     try:
         from browser_agent.agent import ejecutar
         resultados = asyncio.run(ejecutar(req.plan, req.credenciales, req.email or ""))
+        # Guardar sesión en DB
+        duracion = time.time() - (session.get("t_inicio") or time.time())
+        guardar_sesion(
+            plan=req.plan,
+            resultados=resultados,
+            email=req.email or session.get("email", ""),
+            duracion_seg=round(duracion, 2),
+            plan_id=session.get("plan_id"),
+        )
         return {"resultados": resultados, "ok": True}
     except Exception as e:
         return {"error": f"Error en ejecución: {e}", "resultados": []}
@@ -177,3 +196,22 @@ def ejecutar_agente(req: EjecutarReq):
 @app.get("/health")
 def health():
     return {"status": "ok", "sesion_activa": session["grabador"] is not None}
+
+
+# ─── Historial y estadísticas ─────────────────────────────────────────────────
+@app.get("/historial")
+def historial(limit: int = 20):
+    return obtener_historial(limit)
+
+
+@app.get("/estadisticas")
+def estadisticas():
+    return obtener_estadisticas()
+
+
+@app.get("/plan/{url_portal:path}")
+def plan_activo(url_portal: str):
+    plan = cargar_plan_activo(url_portal)
+    if not plan:
+        return {"error": "No hay plan guardado para este portal"}
+    return plan
