@@ -23,6 +23,26 @@ def get_connection():
     return conn
 
 
+# ─── Cifrado de registros financieros en reposo ───────────────────────────────
+# Los detalles de línea (precios por producto) se guardan cifrados. La lectura
+# descifra de forma transparente; los datos legados en claro se devuelven igual.
+
+def _cifrar_financiero(texto: str) -> str:
+    try:
+        from postprocessing.crypto import cifrar_texto
+        return cifrar_texto(texto)
+    except Exception:
+        return texto
+
+
+def _descifrar_financiero(valor: str) -> str:
+    try:
+        from postprocessing.crypto import descifrar_texto
+        return descifrar_texto(valor)
+    except Exception:
+        return valor
+
+
 def hash_password(password: str, salt: str = None) -> tuple:
     if not salt:
         salt = secrets.token_hex(32)
@@ -325,7 +345,8 @@ def guardar_pedido(datos_pedido: dict, sesion_id: int = None) -> int:
         datos_pedido.get("cliente", ""),
         datos_pedido.get("zip", ""),
         datos_pedido.get("envio", ""),
-        json.dumps(datos_pedido.get("productos", []), ensure_ascii=False),
+        _cifrar_financiero(
+            json.dumps(datos_pedido.get("productos", []), ensure_ascii=False)),
         float(datos_pedido.get("subtotal", 0)),
         float(datos_pedido.get("impuestos", 0)),
         float(datos_pedido.get("total", 0)),
@@ -349,9 +370,11 @@ def obtener_pedidos(limit: int = 50) -> list:
     conn.close()
     for r in rows:
         try:
-            r["productos"] = json.loads(r.get("productos_json") or "[]")
+            r["productos"] = json.loads(_descifrar_financiero(r.get("productos_json") or "[]"))
         except Exception:
             r["productos"] = []
+        # No exponemos el blob cifrado crudo al frontend
+        r.pop("productos_json", None)
     return rows
 
 

@@ -1,4 +1,7 @@
 .env
+*.key
+enc.key
+.arcavision/
 __pycache__/
 *.pyc
 .playwright/
