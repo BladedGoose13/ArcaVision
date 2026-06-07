@@ -1216,9 +1216,11 @@ def enviar_ticket(datos_pedido: dict, datos_reporte: dict,
 
     if not remitente or not password:
         print("  ℹ️  EMAIL_REMITENTE / EMAIL_PASSWORD no configurados — solo guardado local")
+        datos_pedido["ticket_enviado"] = False
         return ticket_path
     if not email_cliente:
         print("  ℹ️  Sin email de cliente — solo guardado local")
+        datos_pedido["ticket_enviado"] = False
         return ticket_path
 
     fecha  = datetime.fromisoformat(
@@ -1318,10 +1320,10 @@ def procesar_ticket_completo(datos_reporte: dict,
     """
     Pipeline completo de ticket post-ejecución:
       1. Extrae datos de pedido del texto + estructura del agente
-      2. Guarda en SQLite tabla pedidos
-      3. Actualiza historial Excel acumulativo
-      4. Sube a Google Sheets (si está configurado)
-      5. Genera y envía ticket HTML por email con Excel adjunto
+      2. Genera y envía ticket HTML por email con Excel adjunto
+      3. Guarda en SQLite tabla pedidos (con el estado real del envío)
+      4. Actualiza historial Excel acumulativo
+      5. Sube a Google Sheets (si está configurado)
     """
     # ── Texto libre del agente para extracción regex ──────────────────────────
     # Incluye el resumen final del agente + todos los datos_extraidos por paso
@@ -1336,7 +1338,10 @@ def procesar_ticket_completo(datos_reporte: dict,
 
     datos_pedido = extraer_datos_pedido(resultado_texto, datos_reporte)
 
-    # ── SQLite ────────────────────────────────────────────────────────────────
+    # ── Ticket email (primero: define datos_pedido["ticket_enviado"]) ─────────
+    ticket_path = enviar_ticket(datos_pedido, datos_reporte, email_cliente, excel_path)
+
+    # ── SQLite (ya con el estado real del envío) ──────────────────────────────
     try:
         from database.db import guardar_pedido
         pedido_id = guardar_pedido(datos_pedido, sesion_id=sesion_id)
@@ -1354,7 +1359,4 @@ def procesar_ticket_completo(datos_reporte: dict,
     # ── Google Sheets ─────────────────────────────────────────────────────────
     agregar_a_google_sheets(datos_pedido)
 
-    # ── Ticket email ──────────────────────────────────────────────────────────
-    ticket_path = enviar_ticket(datos_pedido, datos_reporte, email_cliente, excel_path)
-    # ticket_enviado is set inside enviar_ticket based on actual SMTP success
     return {"datos_pedido": datos_pedido, "ticket_path": ticket_path, "pedido_id": pedido_id}
