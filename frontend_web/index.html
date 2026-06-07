@@ -1211,22 +1211,44 @@ function renderResultado(res,plan) {
   const ok=res.filter(r=>r.estado==='ok').length, err=res.filter(r=>r.estado!=='ok').length;
   document.getElementById('resultado-summary').textContent=`✓ Completado: ${ok}/${res.length} pasos exitosos · ${plan.plataforma_origen} → ${plan.plataforma_destino}`;
   document.getElementById('resultado-metrics').innerHTML=`<div class="metric-card"><div class="metric-label">Exitosos</div><div class="metric-value green">${ok}</div></div><div class="metric-card"><div class="metric-label">Errores</div><div class="metric-value red">${err}</div></div><div class="metric-card"><div class="metric-label">Origen</div><div class="metric-value" style="font-size:14px;font-family:'DM Sans'">${plan.plataforma_origen||'—'}</div></div><div class="metric-card"><div class="metric-label">Destino</div><div class="metric-value" style="font-size:14px;font-family:'DM Sans'">${plan.plataforma_destino||'—'}</div></div>`;
-  renderMC(err); renderErrChart(res);
+  renderMC(err, res.length); renderErrChart(res);
   document.getElementById('err-tbody').innerHTML=res.map(r=>{const badge=r.estado==='ok'?'badge-ok':r.estado==='advertencia'?'badge-warn':'badge-error';return`<tr><td>${r.paso}</td><td><code style="font-size:12px;background:var(--g50);padding:2px 6px;border-radius:3px">${r.accion}</code></td><td><span class="badge ${badge}">${r.estado}</span></td></tr>`}).join('');
 }
 
-function renderMC(nErr) {
-  const hist=[15800,18420,22100,17300,19800,16500,21000,18900];
-  const mu=hist.reduce((a,b)=>a+b,0)/hist.length, sig=Math.sqrt(hist.reduce((s,v)=>s+(v-mu)**2,0)/hist.length);
-  const ratio=nErr/Math.max(hist.length,1), N=5000;
-  const samp=Array.from({length:N},()=>Math.abs(mu*ratio+sig*ratio*(Array.from({length:6},()=>Math.random()*4-2).reduce((a,b)=>a+b)/6*Math.SQRT2))).sort((a,b)=>a-b);
+// Gaussiana estándar (Box-Muller) para generar datos sintéticos realistas
+function _gauss(){ let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function renderMC(nErr, totalPasos) {
+  // ── Dataset histórico SINTÉTICO de valores de orden (MXN), lognormal ──
+  // media ~ $9,000 con dispersión realista; 60 órdenes de referencia
+  const hist=Array.from({length:60},()=>Math.max(1200,Math.round(Math.exp(Math.log(9000)+0.45*_gauss()))));
+  const muV=hist.reduce((a,b)=>a+b,0)/hist.length;
+
+  // ── Tasa de error con suavizado de Jeffreys (nunca 0, refleja la corrida) ──
+  // Aunque la ejecución sea perfecta, queda una probabilidad residual de fallo
+  const total=Math.max(totalPasos||8,1);
+  const pErr=(nErr+0.5)/(total+1);
+
+  // ── Simulación Monte Carlo: impacto económico MENSUAL por errores de captura ──
+  // Cada mes se procesan ~120 órdenes; cada una falla con prob. pErr y su valor se pierde.
+  // La suma sobre muchas órdenes produce una distribución acampanada (TLC) → IC 95% real.
+  const ordersMes=120, N=5000;
+  const samp=Array.from({length:N},()=>{
+    let imp=0;
+    for(let k=0;k<ordersMes;k++){ if(Math.random()<pErr) imp+=hist[(Math.random()*hist.length)|0]; }
+    return imp;
+  }).sort((a,b)=>a-b);
+
   const mean=samp.reduce((a,b)=>a+b,0)/N, icL=samp[Math.floor(.025*N)], icH=samp[Math.floor(.975*N)];
-  document.getElementById('mc-metrics').innerHTML=`<div class="metric-card"><div class="metric-label">Impacto medio</div><div class="metric-value red">$${Math.round(mean).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% inferior</div><div class="metric-value" style="font-size:22px">$${Math.round(icL).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% superior</div><div class="metric-value" style="font-size:22px">$${Math.round(icH).toLocaleString()}</div><div class="metric-label">MXN</div></div>`;
-  document.getElementById('mc-caption').textContent=`Monte Carlo N=${N.toLocaleString()} · IC 95% · ${hist.length} órdenes históricas`;
-  const mn=samp[0],mx=samp[N-1],counts=Array(40).fill(0);
-  samp.forEach(s=>counts[Math.min(39,Math.floor((s-mn)/(mx-mn+1)*40))]++);
-  const xs=counts.map((_,i)=>mn+(i/40)*(mx-mn));
-  Plotly.newPlot('chart-mc',[{x:xs.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),y:counts.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),type:'bar',marker:{color:'rgba(200,16,46,0.15)'},hoverinfo:'skip'},{x:xs,y:counts,type:'bar',marker:{color:'rgba(200,16,46,0.7)'}},{x:[mean,mean],y:[0,Math.max(...counts)],type:'scatter',mode:'lines',line:{color:'#C8102E',width:2,dash:'dash'}}],{showlegend:false,paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:10,b:36,l:46,r:10},xaxis:{title:'Impacto (MXN)',tickformat:'$,.0f',gridcolor:'#EEEBE6'},yaxis:{title:'Frecuencia',gridcolor:'#EEEBE6'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'},barmode:'overlay'},{responsive:true,displayModeBar:false});
+  document.getElementById('mc-metrics').innerHTML=`<div class="metric-card"><div class="metric-label">Impacto medio / mes</div><div class="metric-value red">$${Math.round(mean).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% inferior</div><div class="metric-value" style="font-size:22px">$${Math.round(icL).toLocaleString()}</div><div class="metric-label">MXN</div></div><div class="metric-card"><div class="metric-label">IC 95% superior</div><div class="metric-value" style="font-size:22px">$${Math.round(icH).toLocaleString()}</div><div class="metric-label">MXN</div></div>`;
+  document.getElementById('mc-caption').textContent=`Monte Carlo N=${N.toLocaleString()} · IC 95% · ${ordersMes} órdenes/mes · tasa de error estimada ${(pErr*100).toFixed(1)}% · valor medio orden $${Math.round(muV).toLocaleString()}`;
+
+  // ── Histograma con banda IC 95% sombreada ──
+  const mn=samp[0],mx=samp[N-1],rango=Math.max(mx-mn,1),counts=Array(40).fill(0);
+  samp.forEach(s=>counts[Math.min(39,Math.floor((s-mn)/rango*40))]++);
+  const xs=counts.map((_,i)=>mn+(i/40)*rango);
+  Plotly.newPlot('chart-mc',[{x:xs.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),y:counts.filter((_,i)=>xs[i]>=icL&&xs[i]<=icH),type:'bar',marker:{color:'rgba(200,16,46,0.15)'},hoverinfo:'skip'},{x:xs,y:counts,type:'bar',marker:{color:'rgba(200,16,46,0.7)'}},{x:[mean,mean],y:[0,Math.max(...counts)],type:'scatter',mode:'lines',line:{color:'#C8102E',width:2,dash:'dash'},name:'Media'}],{showlegend:false,paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',margin:{t:10,b:36,l:46,r:10},xaxis:{title:'Impacto mensual (MXN)',tickformat:'$,.0f',gridcolor:'#EEEBE6'},yaxis:{title:'Frecuencia',gridcolor:'#EEEBE6'},font:{family:"'DM Sans',sans-serif",size:11,color:'#4A4640'},barmode:'overlay'},{responsive:true,displayModeBar:false});
 }
 
 function renderErrChart(res) {
