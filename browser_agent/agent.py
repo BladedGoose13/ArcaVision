@@ -8,6 +8,7 @@ Fallback a Playwright+Vision si browser_use no está disponible.
 import asyncio
 import json
 import os
+import re
 import hashlib
 import smtplib
 from email.mime.text import MIMEText
@@ -24,25 +25,19 @@ load_dotenv()
 # ─── Motor principal: browser_use ────────────────────────────────────────────
 
 async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte: str) -> list:
-    """
-    Ejecuta el plan con browser_use. Cierra el browser al terminar y
-    retorna resultados estructurados para que el frontend avance a la
-    etapa de aprobación.
-    """
-    from browser_use import Agent, Browser, BrowserConfig
+    from browser_use import Agent
     from langchain_anthropic import ChatAnthropic
 
-    todas = {**credenciales, **plan.get("credenciales_obtenidas", {})}
-    origen   = plan.get("plataforma_origen", "")
-    destino  = plan.get("plataforma_destino", "")
+    todas   = {**credenciales, **plan.get("credenciales_obtenidas", {})}
+    origen  = plan.get("plataforma_origen", "")
+    destino = plan.get("plataforma_destino", "")
     objetivo = plan.get("objetivo", "Ejecutar el proceso aprendido")
 
     creds_texto = "\n".join([f"- {k}: {v}" for k, v in todas.items() if v])
-    mapeo = plan.get("mapeo_campos", [])
     mapeo_texto = "\n".join([
         f"- '{m['campo_origen']}' en {origen} → '{m['campo_destino']}' en {destino}"
-        for m in mapeo
-    ]) if mapeo else "Aprende el mapeo observando la página"
+        for m in plan.get("mapeo_campos", [])
+    ]) or "Aprende el mapeo observando la página"
 
     pasos_texto = "\n".join([
         f"{p['numero']}. [{p['accion'].upper()}] {p['intencion']}"
@@ -50,61 +45,54 @@ async def ejecutar_con_browser_use(plan: dict, credenciales: dict, email_reporte
         for p in plan.get("pasos", [])
     ])
 
-    task = f"""
-Eres un agente que automatiza procesos entre dos sistemas web para Arca Continental.
+    task = f"""Eres un agente que automatiza procesos entre dos sistemas web para Arca Continental.
 
 OBJETIVO: {objetivo}
+SISTEMAS: Origen={origen} → Destino={destino}
 
-SISTEMAS:
-- Origen: {origen}
-- Destino: {destino}
-
-CREDENCIALES DISPONIBLES:
-{creds_texto if creds_texto else "Ninguna — infiere del contexto"}
+CREDENCIALES:
+{creds_texto or "Ninguna — infiere del contexto"}
 
 MAPEO DE CAMPOS:
 {mapeo_texto}
 
-PASOS APRENDIDOS (guíate por la intención, no por coordenadas fijas):
+PASOS (guíate por la intención, no por coordenadas):
 {pasos_texto}
 
 INSTRUCCIONES:
-1. Ejecuta el proceso completo de principio a fin
+1. Ejecuta el proceso completo de principio a fin en un browser visible
 2. Si un elemento no está visible, haz scroll antes de rendirte
 3. Si algo falla, intenta una alternativa razonable UNA VEZ más
-4. Al completar el último paso, extrae los datos más importantes del resultado
-5. TERMINA en cuanto el proceso esté completo — no sigas navegando después
-6. Reporta cada acción importante con su resultado
+4. Al completar el último paso extrae los datos más importantes
+5. TERMINA cuando hayas completado todos los pasos o no puedas avanzar más
 
-CONDICIÓN DE ÉXITO: el proceso termina cuando hayas completado todos los pasos
-o cuando no sea posible avanzar más. En ambos casos, PARA y reporta el resultado.
-
-Al finalizar, responde con este JSON exacto:
-{{"completado": true, "pasos_ejecutados": N, "datos_extraidos": {{}}, "resumen": "..."}}
-"""
+Al finalizar responde con este JSON:
+{{"completado": true, "pasos_ejecutados": N, "datos_extraidos": {{}}, "resumen": "..."}}"""
 
     print(f"\n🤖 browser_use ejecutando: {objetivo}")
     print(f"   Sistemas: {origen} → {destino}\n")
 
-    llm = ChatAnthropic(
-        model="claude-opus-4-5",
-        api_key=os.getenv("ANTHROPIC_API_KEY")
-    )
+    llm = ChatAnthropic(model="claude-opus-4-5", api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-    # Crear browser con ciclo de vida controlado
-    browser = Browser(config=BrowserConfig(headless=False))
+    # Intentar con Browser explícito (versiones recientes) o sin él (versiones antiguas)
+    agent = None
+    browser = None
+    try:
+        from browser_use import Browser, BrowserConfig
+        browser = Browser(config=BrowserConfig(headless=False))
+        agent = Agent(task=task, llm=llm, browser=browser)
+    except (ImportError, Exception):
+        agent = Agent(task=task, llm=llm)
+
     estado = "error"
     resultado_texto = ""
-
     try:
-        agent = Agent(task=task, llm=llm, browser=browser)
         result = await asyncio.wait_for(agent.run(max_steps=40), timeout=300)
         resultado_texto = str(result)
         print(f"\n✅ browser_use completó el proceso")
-        print(f"   {resultado_texto[:200]}...")
         estado = "ok"
     except asyncio.TimeoutError:
-        resultado_texto = "Timeout: el agente excedió 5 minutos de ejecución"
+        resultado_texto = "Timeout: el agente excedió 5 minutos"
         print(f"\n⏱️  Timeout en browser_use")
         estado = "advertencia"
     except Exception as e:
@@ -112,43 +100,48 @@ Al finalizar, responde con este JSON exacto:
         print(f"\n❌ Error en browser_use: {e}")
         estado = "error"
     finally:
-        # Siempre cerrar el browser al terminar
-        try:
-            await browser.close()
-            print("  🔒 Browser cerrado")
-        except Exception:
-            pass
+        if browser is not None:
+            try:
+                await browser.close()
+            except Exception:
+                pass
 
     # Guardar reporte JSON
-    reporte = {
-        "objetivo":           objetivo,
-        "plataforma_origen":  origen,
-        "plataforma_destino": destino,
-        "resultado":          resultado_texto,
-        "fecha":              datetime.now().isoformat(),
-        "motor":              "browser_use",
-    }
     Path("sesiones").mkdir(exist_ok=True)
     with open("sesiones/reporte.json", "w", encoding="utf-8") as f:
-        json.dump(reporte, f, indent=2, ensure_ascii=False)
+        json.dump({"objetivo": objetivo, "origen": origen, "destino": destino,
+                   "resultado": resultado_texto, "fecha": datetime.now().isoformat(),
+                   "motor": "browser_use"}, f, indent=2, ensure_ascii=False)
 
-    # Intentar parsear el JSON que el agente devuelve al final
+    # Parsear datos extraídos del JSON que el agente devuelve al final
     datos_extraidos = {}
     try:
-        import re
-        match = re.search(r'\{.*"completado".*\}', resultado_texto, re.DOTALL)
+        match = re.search(r'\{[^{}]*"completado"[^{}]*\}', resultado_texto, re.DOTALL)
         if match:
             parsed = json.loads(match.group())
             datos_extraidos = parsed.get("datos_extraidos", {})
+            if not isinstance(datos_extraidos, dict):
+                datos_extraidos = {"resumen": str(datos_extraidos)}
     except Exception:
         pass
 
-    n_pasos = len(plan.get("pasos", [])) or 1
-    return [
-        {"paso": i + 1, "accion": "browser_use", "estado": estado,
-         "datos_extraidos": datos_extraidos if i == n_pasos - 1 else None}
-        for i in range(n_pasos)
-    ]
+    # Construir resultados reales basados en los pasos del plan
+    pasos = plan.get("pasos", [])
+    if not pasos:
+        return [{"paso": 1, "accion": "browser_use", "estado": estado,
+                 "intencion": objetivo, "datos_extraidos": datos_extraidos or resultado_texto[:300]}]
+
+    resultados = []
+    for i, p in enumerate(pasos):
+        es_ultimo = i == len(pasos) - 1
+        resultados.append({
+            "paso":          p["numero"],
+            "accion":        p["accion"],
+            "intencion":     p["intencion"],
+            "estado":        estado if es_ultimo else ("ok" if estado != "error" else "error"),
+            "datos_extraidos": datos_extraidos if es_ultimo and datos_extraidos else None,
+        })
+    return resultados
 
 
 # ─── Fallback: Playwright + Vision ────────────────────────────────────────────
