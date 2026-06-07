@@ -97,7 +97,6 @@ ArcaVision/
 ├── main.py                          Entrypoint principal
 ├── requirements.txt
 ├── .gitignore
-├── arcavision.db                    SQLite (sesiones, planes, pedidos)
 │
 ├── backend/
 │   └── api.py                       FastAPI — conecta frontend con el agente
