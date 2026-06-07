@@ -18,6 +18,48 @@ if not _api_key:
 client = Anthropic(api_key=_api_key)
 
 
+# ─── Utilidad: parseo robusto de JSON de Claude ───────────────────────────────
+
+def _parsear_json(raw: str) -> dict:
+    """
+    Extrae el primer objeto JSON completo de la respuesta de Claude.
+    Balancea llaves (soporta JSON anidado) e ignora texto, code fences o
+    comentarios alrededor. Reemplaza el frágil split('```')+lstrip('json'),
+    que removía caracteres sueltos y fallaba si había texto extra.
+    """
+    if not raw:
+        return {}
+    inicio = raw.find("{")
+    while inicio != -1:
+        nivel = 0
+        en_str = False
+        escape = False
+        for i in range(inicio, len(raw)):
+            c = raw[i]
+            if escape:
+                escape = False
+                continue
+            if c == "\\":
+                escape = True
+                continue
+            if c == '"':
+                en_str = not en_str
+                continue
+            if en_str:
+                continue
+            if c == "{":
+                nivel += 1
+            elif c == "}":
+                nivel -= 1
+                if nivel == 0:
+                    try:
+                        return json.loads(raw[inicio:i + 1])
+                    except json.JSONDecodeError:
+                        break
+        inicio = raw.find("{", inicio + 1)
+    return {}
+
+
 # ─── Audio ────────────────────────────────────────────────────────────────────
 
 def transcribir_audio(audio_path: str) -> str:
@@ -116,10 +158,9 @@ Responde SOLO este JSON sin texto adicional:
         messages=[{"role": "user", "content": contenido}],
     )
 
-    raw = resp_plan.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip("json").strip()
-    plan = json.loads(raw)
+    plan = _parsear_json(resp_plan.content[0].text)
+    if not plan:
+        raise ValueError("Claude no devolvió un plan JSON válido")
 
     # ── Paso 2: preguntas inteligentes (inspirado en cerebro/procesar.py) ──────
     analisis = hacer_preguntas_inteligentes(plan, transcripcion)
@@ -172,14 +213,11 @@ Responde SOLO JSON:
 }}"""}],
     )
 
-    raw = respuesta.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip("json").strip()
-
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
+    data = _parsear_json(respuesta.content[0].text)
+    if not data:
         data = {"preguntas": [], "ya_se": []}
+    data.setdefault("preguntas", [])
+    data.setdefault("ya_se", [])
 
     # Asegurar es_password por nombre del campo si Claude no lo incluyó
     for p in data.get("preguntas", []):

@@ -242,6 +242,101 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--g900);
 .tasa-bar{display:inline-flex;align-items:center;gap:6px}
 .tasa-track{width:60px;height:4px;background:var(--g100);border-radius:2px;overflow:hidden}
 .tasa-fill{height:100%;border-radius:2px;background:var(--ok)}
+
+/* ════════════════════════════════════════════════════════════
+   ✦ CAPA DELUXE — refinamiento premium (solo estética, cascada)
+   No modifica estructura, HTML ni JS. Acento champagne + rojo Arca.
+═══════════════════════════════════════════════════════════════ */
+:root{
+  --gold:#C9A35B; --gold-l:#E6CD93; --gold-d:#9E7C3A;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --sh-lux:0 1px 2px rgba(28,26,24,.04),0 8px 24px -8px rgba(28,26,24,.12),0 18px 48px -24px rgba(28,26,24,.16);
+  --sh-gold:0 8px 28px -10px rgba(201,163,91,.45);
+}
+
+/* — Tipografía con renderizado fino — */
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+
+/* — Scrollbar premium — */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:linear-gradient(var(--g300),var(--g500));border-radius:10px;border:2px solid var(--cream)}
+*::-webkit-scrollbar-thumb:hover{background:linear-gradient(var(--gold),var(--gold-d))}
+
+/* — Selección de texto — */
+::selection{background:rgba(201,163,91,.28);color:var(--g900)}
+
+/* — Títulos con filo dorado — */
+.page-title,.arca-title{position:relative;display:inline-block}
+.page-title::after,.arca-title::after{content:'';position:absolute;left:0;bottom:-8px;width:46px;height:3px;border-radius:3px;
+  background:linear-gradient(90deg,var(--red),var(--gold));box-shadow:0 1px 6px rgba(201,163,91,.5)}
+
+/* — Cards: profundidad y borde con destello — */
+.card{box-shadow:var(--sh-lux);border-color:rgba(28,26,24,.06);transition:transform .35s var(--ease),box-shadow .35s var(--ease),border-color .35s var(--ease);position:relative}
+.card::before{content:'';position:absolute;inset:0;border-radius:var(--rl);padding:1px;pointer-events:none;
+  background:linear-gradient(140deg,rgba(201,163,91,.35),transparent 40%,transparent 60%,rgba(200,16,46,.18));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .35s var(--ease)}
+.card:hover{transform:translateY(-3px);box-shadow:var(--sh-lux),0 24px 60px -28px rgba(200,16,46,.28)}
+.card:hover::before{opacity:1}
+
+/* — Card title con punto dorado — */
+.card-title{position:relative;padding-left:14px}
+.card-title::before{content:'';position:absolute;left:0;top:1px;width:6px;height:6px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,var(--gold-l),var(--gold-d));box-shadow:0 0 8px rgba(201,163,91,.7)}
+
+/* — Botón primario: barniz dorado deslizante — */
+.btn-primary,.btn-login{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--red) 0%,var(--red-d) 100%);transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
+.btn-primary::before,.btn-login::before{content:'';position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(230,205,147,.55),transparent);transform:skewX(-18deg);transition:left .6s var(--ease)}
+.btn-primary:hover::before,.btn-login:hover::before{left:130%}
+.btn-primary:hover,.btn-login:hover{box-shadow:0 10px 30px -8px rgba(200,16,46,.45),var(--sh-gold)}
+
+/* — Topbar glass con hilo dorado bajo el rojo — */
+.topbar{backdrop-filter:saturate(1.3) blur(6px);background:rgba(255,255,255,.86);box-shadow:0 1px 0 rgba(201,163,91,.35),0 6px 22px -12px rgba(28,26,24,.25)}
+.logo-mark{background:linear-gradient(135deg,var(--red),var(--red-d));box-shadow:0 4px 14px -4px rgba(200,16,46,.55),inset 0 0 0 1px rgba(230,205,147,.3)}
+
+/* — Métricas: acento superior dorado + relieve — */
+.metric-card{box-shadow:var(--sh-lux);border-color:rgba(28,26,24,.06);position:relative;overflow:hidden;transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+.metric-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--red),var(--gold),transparent)}
+.metric-card:hover{transform:translateY(-2px);box-shadow:var(--sh-lux),0 18px 44px -22px rgba(201,163,91,.4)}
+.metric-value{background:linear-gradient(135deg,var(--g900),var(--g700));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.metric-value.red{background:linear-gradient(135deg,var(--red),var(--red-d));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* — Badges con grano sutil — */
+.badge{box-shadow:inset 0 0 0 1px rgba(28,26,24,.04)}
+.badge-arca{background:linear-gradient(135deg,#FFF0F0,#FDE3E3)}
+
+/* — Inputs: foco con halo cálido — */
+.form-input:focus,.sidebar input:focus,.pregunta-card input:focus,.mapeo-table input:focus{
+  box-shadow:0 0 0 3px rgba(200,16,46,.08),0 0 0 1px rgba(201,163,91,.25)}
+
+/* — Pregunta-card: realce editorial — */
+.pregunta-card{box-shadow:var(--sh-lux);border-color:rgba(28,26,24,.06);transition:transform .3s var(--ease),box-shadow .3s var(--ease)}
+.pregunta-card:hover{transform:translateY(-2px);box-shadow:var(--sh-lux),0 16px 40px -22px rgba(200,16,46,.22)}
+.pregunta-q{position:relative;padding-left:14px}
+.pregunta-q::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:3px;background:linear-gradient(var(--red),var(--gold))}
+
+/* — Role cards seleccionada: anillo dorado — */
+.role-btn.selected{box-shadow:0 0 0 1px var(--red),0 0 0 4px rgba(201,163,91,.18),0 12px 30px -14px rgba(200,16,46,.3)}
+
+/* — Login hero: vetas doradas sobre el degradado — */
+.login-hero-content::after{content:'';position:absolute;left:52px;right:52px;bottom:140px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,163,91,.5),transparent)}
+.login-hero-title span{background:linear-gradient(135deg,var(--red),var(--gold-l));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero-stat-num{background:linear-gradient(135deg,#fff,var(--gold-l));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* — Nav Arca activa: filo dorado interior — */
+.arca-nav-item.active{box-shadow:inset 0 0 24px -16px rgba(201,163,91,.7)}
+
+/* — Spinner con doble anillo dorado — */
+.spinner{border-top-color:var(--red);border-right-color:rgba(201,163,91,.5)}
+
+/* — Filas de tablas con hover cálido — */
+.results-table tr:hover td,.historial-table tr:hover td{background:linear-gradient(90deg,rgba(201,163,91,.05),transparent)}
+
+/* — Entrada suave de páginas — */
+.page.active,.arca-page.active{animation:lux-in .5s var(--ease)}
+@keyframes lux-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
