@@ -180,7 +180,7 @@ def hacer_preguntas_inteligentes(plan_inicial: dict, transcripcion: str) -> dict
     """
     respuesta = client.messages.create(
         model="claude-opus-4-5",
-        max_tokens=2000,
+        max_tokens=4000,
         messages=[{"role": "user", "content": f"""Eres un agente inteligente que aprendió un proceso web observando a un usuario.
 
 Plan generado:
@@ -188,15 +188,41 @@ Plan generado:
 
 El usuario explicó: "{transcripcion or '(sin audio)'}"
 
-Identifica QUÉ información genuinamente te falta para ejecutar este proceso.
+Identifica QUÉ información genuinamente te falta para ejecutar este proceso SIN parar a mitad.
+El peor escenario es que el agente llegue a un formulario de registro y no sepa qué poner en
+un campo — eso lo mete en un bucle de insertar-borrar. Más vale preguntar ahora que trabarse después.
+
+CATEGORÍAS de información que SIEMPRE debes verificar si el proceso incluye registro de datos:
+
+1. CREDENCIALES DE ACCESO (una pregunta por sistema si hay login):
+   - Usuario / email de acceso al sistema DESTINO
+   - Contraseña del sistema DESTINO (es_password: true)
+
+2. DATOS DE IDENTIFICACIÓN DEL CLIENTE/COMPRADOR (si el formulario los pide):
+   - Número de cliente, código de cliente o ID en el sistema destino
+   - RFC / RUC / NIT o identificación fiscal
+   - Razón social o nombre de la empresa compradora
+   - Nombre del contacto o responsable del pedido
+
+3. DATOS DE ENTREGA (si el proceso incluye envío):
+   - Dirección de entrega completa (calle, número, colonia, ciudad)
+   - Código postal de entrega
+   - Teléfono de contacto para la entrega
+
+4. DATOS DEL PEDIDO (si el proceso incluye registrar una orden):
+   - Número de orden de compra (PO number) si ya existe
+   - Fecha de entrega solicitada o plazo
+   - Condiciones de pago (crédito, contado, días)
+   - Centro de costo o área solicitante
 
 REGLAS:
-- NO preguntes sobre botones, menús ni navegación — eso lo ves en pantalla
-- NO preguntes datos que son visibles en los screenshots (nombres de producto, fechas, cantidades)
-- SÍ pregunta sobre: credenciales, datos que el usuario escribió y no se veían (campos con asteriscos)
-- Cada pregunta cubre UN SOLO dato — nunca preguntes "usuario y contraseña" juntos
-- Si el plan lista credenciales_necesarias, genera una pregunta por cada item de esa lista
-- Máximo 4 preguntas. Si no falta nada, deja preguntas vacío.
+- NO preguntes sobre botones, menús ni navegación
+- NO preguntes datos visibles en los screenshots
+- SÍ pregunta sobre cualquier campo de texto que el usuario haya llenado y NO sea obvio
+- Cada pregunta cubre UN SOLO dato
+- Genera una pregunta por cada credencial_necesaria del plan
+- Para CADA categoría anterior que sea relevante al proceso, incluye las preguntas necesarias
+- Máximo 10 preguntas totales — prioriza: credenciales > identificación cliente > pedido > entrega
 - Indica es_password: true para contraseñas, tokens y claves secretas
 
 Responde SOLO JSON:
