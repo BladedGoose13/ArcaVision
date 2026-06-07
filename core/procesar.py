@@ -1,8 +1,8 @@
 """
-core/procesar.py
-----------------
-Fase A: analizar_sesion   → genera plan + preguntas (sin input(), devuelve al frontend)
-Fase B: completar_plan    → recibe respuestas del frontend, cierra el plan
+core/procesar.py — usado por backend/api.py (frontend HTML)
+------------------------------------------------------------
+Fase A: analizar_sesion   → screenshots + audio → plan + preguntas para el frontend
+Fase B: completar_plan    → recibe respuestas del HTML → cierra el plan
 """
 import json
 import os
@@ -18,10 +18,9 @@ if not _api_key:
 client = Anthropic(api_key=_api_key)
 
 
-# ─── Transcripción ────────────────────────────────────────────────────────────
+# ─── Audio ────────────────────────────────────────────────────────────────────
 
 def transcribir_audio(audio_path: str) -> str:
-    """Transcribe el audio con Groq Whisper. Si falla, devuelve cadena vacía."""
     if not audio_path or not Path(audio_path).exists():
         return ""
     try:
@@ -29,23 +28,20 @@ def transcribir_audio(audio_path: str) -> str:
         groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
         with open(audio_path, "rb") as f:
             transcript = groq_client.audio.transcriptions.create(
-                model="whisper-large-v3",
-                file=f,
-                language="es",
+                model="whisper-large-v3", file=f, language="es",
             )
         return transcript.text.strip()
     except Exception as e:
-        print(f"  ⚠️  Groq no disponible: {e}. Continuando sin audio.")
+        print(f"  ⚠️  Groq no disponible: {e}")
         return ""
 
 
-# ─── Fase A: análisis ─────────────────────────────────────────────────────────
+# ─── Fase A ───────────────────────────────────────────────────────────────────
 
 def analizar_sesion(eventos: list, audio_path: str) -> dict:
     """
-    Analiza los eventos grabados y el audio.
-    Devuelve {"plan": {...}, "preguntas": [...], "ya_se": [...]}
-    SIN llamar a input() — las preguntas se muestran en el frontend.
+    Retorna {"plan": {...}, "preguntas": [...], "ya_se": [...]}
+    para que el frontend HTML los muestre. Nunca llama input().
     """
     transcripcion = transcribir_audio(audio_path)
 
@@ -53,79 +49,66 @@ def analizar_sesion(eventos: list, audio_path: str) -> dict:
     if not con_screenshot:
         raise ValueError("No hay screenshots en la grabación. ¿Se grabó correctamente?")
 
-    # Seleccionar hasta 10 keyframes distribuidos uniformemente
     paso = max(1, len(con_screenshot) // 10)
     keyframes = con_screenshot[::paso][:10]
 
-    # ── Paso 1: generar plan desde screenshots + audio ─────────────────────────
+    # ── Paso 1: Claude analiza screenshots + audio y genera el plan ───────────
     contenido = []
     for i, evento in enumerate(keyframes):
         contenido.append({
             "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": "image/jpeg",
-                "data": evento["screenshot"],
-            },
+            "source": {"type": "base64", "media_type": "image/jpeg",
+                       "data": evento["screenshot"]},
         })
         contenido.append({
             "type": "text",
-            "text": (
-                f"Momento {i+1}: acción '{evento['tipo']}' "
-                f"en coordenadas ({evento.get('x','?')}, {evento.get('y','?')})"
-            ),
+            "text": f"Momento {i+1}: {evento['tipo']} en ({evento.get('x','')}, {evento.get('y','')})",
         })
 
     contexto_audio = (
-        f'\nEl usuario explicó en voz alta mientras trabajaba:\n"{transcripcion}"\n'
+        f'\nEl usuario explicó mientras trabajaba:\n"{transcripcion}"\n'
         if transcripcion
-        else "\n(No hay audio disponible — infiere el proceso solo desde las imágenes)\n"
+        else "\n(Sin audio — infiere el proceso solo desde las imágenes)\n"
     )
 
-    contenido.append({
-        "type": "text",
-        "text": f"""{contexto_audio}
-Analiza TODO y genera un plan ejecutable. El usuario trabajó con DOS sistemas:
-- ORIGEN: de donde se extraen los datos (ERP, portal del proveedor, etc.)
-- DESTINO: donde se registran (portal ARCFAST u otro sistema de Arca Continental)
+    contenido.append({"type": "text", "text": f"""{contexto_audio}
+Analiza TODO y genera el plan. El usuario trabajó con DOS sistemas:
+- ORIGEN: donde están los datos
+- DESTINO: donde se registran los datos
 
-REGLAS IMPORTANTES:
-- Describe los elementos de forma VISUAL (no uses selectores CSS ni IDs)
-- Usa el texto exacto visible en pantalla para identificar botones y campos
-- Los campos pueden tener nombres distintos en cada sistema — aprende el mapeo real
-- En "credenciales_necesarias" incluye SOLO datos que el bot NO puede ver en pantalla
-  (contraseñas, tokens, datos que el usuario escribió fuera de cámara)
+Los campos pueden tener nombres DISTINTOS en cada sistema — aprende el mapeo real.
+NUNCA uses selectores CSS ni IDs. Describe elementos visualmente.
+En "credenciales_necesarias" incluye SOLO datos que el bot NO puede ver en pantalla
+(contraseñas, tokens, campos que aparecen con asteriscos o que el usuario escribió
+sin que la cámara lo capturara).
 
-Responde ÚNICAMENTE este JSON (sin texto adicional, sin backticks):
+Responde SOLO este JSON sin texto adicional:
 {{
-  "plataforma_origen": "nombre del sistema de origen",
-  "plataforma_destino": "nombre del sistema de destino",
-  "objetivo": "descripción concisa de lo que logra este proceso",
+  "plataforma_origen": "nombre del sistema origen",
+  "plataforma_destino": "nombre del sistema destino",
+  "objetivo": "qué logra este proceso",
   "mapeo_campos": [
     {{
-      "campo_origen": "nombre visible en origen",
-      "campo_destino": "nombre visible en destino",
-      "descripcion": "qué representa este dato",
+      "campo_origen": "nombre en origen",
+      "campo_destino": "nombre en destino",
+      "descripcion": "qué representa",
       "confianza": 0.95
     }}
   ],
-  "credenciales_necesarias": ["lista de datos que el bot necesitará pero no vio"],
+  "credenciales_necesarias": ["UN item por credencial, ej: 'usuario_arcfast', 'password_arcfast'"],
   "pasos": [
     {{
       "numero": 1,
-      "sistema": "origen|destino",
-      "intencion": "descripción visual de qué hacer y dónde",
+      "sistema": "origen o destino",
+      "intencion": "descripción visual de qué hacer",
       "accion": "navegar|click|escribir|seleccionar|verificar|esperar|extraer",
-      "valor": "URL o texto a escribir, vacío si no aplica",
-      "validacion": "cómo saber que el paso funcionó"
+      "valor": "URL o texto si aplica",
+      "validacion": "cómo saber que funcionó"
     }}
   ],
-  "excepciones": [
-    {{"situacion": "qué puede salir mal", "accion": "qué hacer en ese caso"}}
-  ],
-  "reporte_incluir": ["datos que deben aparecer en el reporte final al usuario"]
-}}""",
-    })
+  "excepciones": [{{"situacion": "qué puede salir mal", "accion": "qué hacer"}}],
+  "reporte_incluir": ["datos a incluir en el reporte"]
+}}"""})
 
     resp_plan = client.messages.create(
         model="claude-opus-4-5",
@@ -138,76 +121,58 @@ Responde ÚNICAMENTE este JSON (sin texto adicional, sin backticks):
         raw = raw.split("```")[1].lstrip("json").strip()
     plan = json.loads(raw)
 
-    # ── Paso 2: generar preguntas coherentes ──────────────────────────────────
-    preguntas_data = _generar_preguntas(plan, transcripcion)
+    # ── Paso 2: preguntas inteligentes (inspirado en cerebro/procesar.py) ──────
+    analisis = hacer_preguntas_inteligentes(plan, transcripcion)
 
     return {
         "plan":      plan,
-        "preguntas": preguntas_data["preguntas"],
-        "ya_se":     preguntas_data["ya_se"],
+        "preguntas": analisis["preguntas"],
+        "ya_se":     analisis.get("ya_se", []),
     }
 
 
-def _generar_preguntas(plan: dict, transcripcion: str) -> dict:
+def hacer_preguntas_inteligentes(plan_inicial: dict, transcripcion: str) -> dict:
     """
-    Genera preguntas COHERENTES sobre lo que el agente realmente necesita
-    y no puede inferir. Devuelve dict con 'preguntas' y 'ya_se'.
+    Identifica qué información genuinamente falta para ejecutar el proceso.
+    Retorna {"preguntas": [...], "ya_se": [...]} — sin llamar input().
+    Cada pregunta es UN solo dato (nunca mezcla usuario y contraseña en una).
     """
-    credenciales_declaradas = plan.get("credenciales_necesarias", [])
-    pasos_str = json.dumps(plan.get("pasos", []), ensure_ascii=False, indent=2)
-    mapeo_str = json.dumps(plan.get("mapeo_campos", []), ensure_ascii=False, indent=2)
-
-    resp = client.messages.create(
+    respuesta = client.messages.create(
         model="claude-opus-4-5",
         max_tokens=2000,
-        messages=[{
-            "role": "user",
-            "content": f"""Eres el agente ArcFast. Acabas de aprender un proceso observando al usuario.
+        messages=[{"role": "user", "content": f"""Eres un agente inteligente que aprendió un proceso web observando a un usuario.
 
-PLAN GENERADO:
-- Origen: {plan.get("plataforma_origen")}
-- Destino: {plan.get("plataforma_destino")}
-- Objetivo: {plan.get("objetivo")}
+Plan generado:
+{json.dumps(plan_inicial, indent=2, ensure_ascii=False)}
 
-PASOS:
-{pasos_str}
+El usuario explicó: "{transcripcion or '(sin audio)'}"
 
-MAPEO DE CAMPOS:
-{mapeo_str}
+Identifica QUÉ información genuinamente te falta para ejecutar este proceso.
 
-CREDENCIALES QUE YA DETECTÉ COMO NECESARIAS: {credenciales_declaradas}
+REGLAS:
+- NO preguntes sobre botones, menús ni navegación — eso lo ves en pantalla
+- NO preguntes datos que son visibles en los screenshots (nombres de producto, fechas, cantidades)
+- SÍ pregunta sobre: credenciales, datos que el usuario escribió y no se veían (campos con asteriscos)
+- Cada pregunta cubre UN SOLO dato — nunca preguntes "usuario y contraseña" juntos
+- Si el plan lista credenciales_necesarias, genera una pregunta por cada item de esa lista
+- Máximo 4 preguntas. Si no falta nada, deja preguntas vacío.
+- Indica es_password: true para contraseñas, tokens y claves secretas
 
-LO QUE EL USUARIO EXPLICÓ: "{transcripcion or '(sin audio)'}"
-
-Tu tarea: determina qué datos necesitas pedirle al usuario para ejecutar este proceso.
-
-REGLAS ESTRICTAS:
-1. NO preguntes sobre navegación, botones ni menús — los ves en pantalla
-2. NO preguntes datos que son visibles en los screenshots (nombres de productos, fechas, cantidades)
-3. SÍ pregunta: contraseñas, tokens de autenticación, datos que el usuario escribió
-   sin que la cámara lo capturara claramente (ej: campos con asteriscos)
-4. Si el plan ya lista credenciales_necesarias, genera una pregunta por cada una
-5. Máximo 4 preguntas. Si no falta nada crítico, deja "preguntas" vacío
-6. Las preguntas deben ser en español, claras y específicas al sistema detectado
-
-Responde ÚNICAMENTE este JSON:
+Responde SOLO JSON:
 {{
   "preguntas": [
     {{
       "campo": "nombre_interno_sin_espacios",
-      "pregunta": "Pregunta clara dirigida al usuario",
-      "por_que": "Explicación breve de por qué no puedes inferirlo",
-      "es_password": true
+      "pregunta": "Pregunta clara y específica al sistema detectado",
+      "por_que": "por qué no pudiste inferirlo de los screenshots",
+      "es_password": false
     }}
   ],
-  "ya_se": [
-    "Dato concreto que aprendí sin necesitar preguntarlo"
-  ]
-}}""",
-        }],
+  "ya_se": ["dato concreto que aprendí sin necesitar preguntar"]
+}}"""}],
     )
 
-    raw = resp.content[0].text.strip()
+    raw = respuesta.content[0].text.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1].lstrip("json").strip()
 
@@ -216,31 +181,29 @@ Responde ÚNICAMENTE este JSON:
     except json.JSONDecodeError:
         data = {"preguntas": [], "ya_se": []}
 
-    # Garantizar que el campo es_password exista en cada pregunta
+    # Asegurar es_password por nombre del campo si Claude no lo incluyó
     for p in data.get("preguntas", []):
         if "es_password" not in p:
             p["es_password"] = any(
                 w in p.get("campo", "").lower()
-                for w in ["password", "contraseña", "clave", "pass", "token", "secret"]
+                for w in ["password", "contraseña", "clave", "pass", "token", "secret", "pwd"]
             )
 
     return data
 
 
-# ─── Fase B: completar plan con respuestas del usuario ────────────────────────
+# ─── Fase B ───────────────────────────────────────────────────────────────────
 
 def completar_plan(resultado_fase_a: dict, respuestas_usuario: dict) -> tuple:
     """
-    Recibe el resultado de analizar_sesion y las respuestas del frontend.
-    Devuelve (plan_completo, lista_de_advertencias).
+    Recibe las respuestas del frontend HTML y las integra en el plan.
+    Retorna (plan_completo, lista_de_advertencias).
     """
     plan = resultado_fase_a.get("plan", resultado_fase_a)
 
     advertencias = []
-    preguntas = resultado_fase_a.get("preguntas", [])
-    for p in preguntas:
-        campo = p["campo"]
-        if campo not in respuestas_usuario or not respuestas_usuario[campo]:
+    for p in resultado_fase_a.get("preguntas", []):
+        if not respuestas_usuario.get(p["campo"]):
             advertencias.append(f"Falta respuesta para: {p['pregunta']}")
 
     plan["credenciales_obtenidas"] = respuestas_usuario
