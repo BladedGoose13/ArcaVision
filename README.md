@@ -92,7 +92,7 @@ Para inspeccionar: extensión **SQLite Viewer** en VS Code. Para migrar a SQL Se
 &nbsp;
 
 ## Estructura del proyecto
-
+```
 ArcaVision/
 ├── main.py                          Entrypoint principal
 ├── requirements.txt
@@ -150,7 +150,7 @@ ArcaVision/
 │
 ├── reportes/                        Generados en runtime (gitignoreados)
 └── sesiones/                        Grabaciones y planes (gitignoreados)
-
+```
 &nbsp;
 
 ## División de trabajo
