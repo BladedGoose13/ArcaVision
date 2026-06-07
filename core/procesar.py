@@ -230,6 +230,40 @@ Responde SOLO JSON:
     return data
 
 
+# ─── Filtro de artefactos de grabación ───────────────────────────────────────
+
+_PATRONES_ARCFAST = (
+    "localhost", "127.0.0.1", "0.0.0.0", "arcfast", ":8000", ":8080",
+    "regresar a la app", "volver a la app", "cerrar grabación", "detener grabación",
+)
+
+def _filtrar_pasos_grabador(plan: dict) -> None:
+    """
+    Elimina del final de plan["pasos"] cualquier paso que corresponda a
+    navegar de vuelta a la interfaz ArcFast — artefacto de cuando el usuario
+    pulsa 'Detener grabación' y el grabador captura ese clic/navegación.
+    Solo borra pasos del final (tail) para no tocar el proceso real.
+    """
+    pasos = plan.get("pasos", [])
+    if not pasos:
+        return
+    cola = min(3, len(pasos))
+    nuevos = list(pasos)
+    while nuevos and cola > 0:
+        ultimo = nuevos[-1]
+        texto = " ".join([
+            str(ultimo.get("valor", "")),
+            str(ultimo.get("intencion", "")),
+            str(ultimo.get("validacion", "")),
+        ]).lower()
+        if any(p in texto for p in _PATRONES_ARCFAST):
+            nuevos.pop()
+            cola -= 1
+        else:
+            break
+    plan["pasos"] = nuevos
+
+
 # ─── Fase B ───────────────────────────────────────────────────────────────────
 
 def completar_plan(resultado_fase_a: dict, respuestas_usuario: dict) -> tuple:
@@ -245,6 +279,10 @@ def completar_plan(resultado_fase_a: dict, respuestas_usuario: dict) -> tuple:
             advertencias.append(f"Falta respuesta para: {p['pregunta']}")
 
     plan["credenciales_obtenidas"] = respuestas_usuario
+
+    # Eliminar pasos finales que sean artefactos del grabador (el usuario
+    # vuelve a la app ArcFast para detener la grabación — no son parte del proceso real)
+    _filtrar_pasos_grabador(plan)
 
     Path("sesiones").mkdir(exist_ok=True)
     with open("sesiones/plan.json", "w", encoding="utf-8") as f:
