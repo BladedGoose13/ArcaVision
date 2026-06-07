@@ -225,12 +225,16 @@ CÓMO ACTUAR — PROTOCOLO DE DECISIÓN ESTOCÁSTICA:
 5. Si 2 pasos seguidos fallan, o aparece captcha/login inesperado, o la página no carga → TERMINA y reporta el motivo.
 6. Cuando completes todos los pasos → termina de inmediato.
 
-REGISTRO DE DATOS DE COMPRA EN EL SISTEMA DESTINO (donde más te trabas):
-- Llena CADA campo del formulario UNA sola vez: click en el campo, escribe el valor, y pasa al siguiente. NO releas ni re-verifiques un campo ya escrito.
-- Si un campo ya tiene el valor correcto → déjalo y avanza. No lo borres para reescribir.
-- Para dropdowns/selects: abre, elige la opción más parecida al valor del mapeo, y sigue. Si no existe exacta, elige la más cercana; no te quedes buscando.
-- Cuando termines de llenar todos los campos visibles → busca el botón de guardar/registrar/confirmar y haz click. No vuelvas a recorrer el formulario.
-- Si un campo obligatorio no acepta el valor tras 1 intento → anótalo en "datos_extraidos" y continúa con el resto; no bloquees todo el registro por un campo.
+PROTOCOLO ANTI-ESPIRAL PARA FORMULARIOS (OBLIGATORIO — sin excepciones):
+- ANTES de tocar cualquier campo, lee el formulario completo y enumera mentalmente todos los campos visibles.
+- Llena en orden de arriba a abajo. Por cada campo: (1) click UNA vez, (2) escribe el valor, (3) presiona Tab para avanzar. Solo Tab — NUNCA vuelvas a hacer click en ese campo.
+- NUNCA hagas click en un campo que ya tiene texto escrito. Si ya tiene el valor correcto → salta al siguiente.
+- NUNCA uses backspace/delete para borrar lo que escribiste. Si cometiste un error en un campo → déjalo y continúa; anótalo en "datos_extraidos".
+- NUNCA vuelvas a recorrer el formulario para "verificar". Llenado lineal, solo hacia adelante.
+- Para dropdowns/selects: click para abrir → click en la primera opción que contenga la palabra clave → avanza. Máximo 1 intento.
+- Al terminar el último campo → busca el botón guardar/registrar/confirmar → click → espera confirmación → termina.
+- Si tras 1 intento un campo obligatorio rechaza el valor → anótalo en "datos_extraidos" y continúa; no bloquees el proceso entero.
+- CONTADOR ANTI-LOOP: si estás en el mismo formulario y llevas más de 3 acciones seguidas sin avanzar de campo → detente, reporta estado parcial y llama a done.
 
 REGISTRO DE COMPRAS (crítico para el reporte):
 Cada vez que agregues un producto al carrito/orden, anota nombre exacto, precio unitario y cantidad.
@@ -253,9 +257,11 @@ Al finalizar (éxito o fallo) llama a la acción "done" con EXACTAMENTE este JSO
 
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     timeout_seg = int(os.getenv("AGENT_TIMEOUT_SEG", "300"))  # 5 min por defecto
-    # ~4 acciones de browser por paso del plan (click, escribir, verificar, scroll),
-    # con piso de 25 y techo de 60 para no dispararse en planes enormes.
-    max_steps = max(25, min(60, n_pasos * 4 + 10))
+    # ~5 acciones de browser por paso del plan; piso 30, techo configurable con
+    # AGENT_MAX_STEPS (por defecto 120 — suficiente para login + navegación +
+    # formulario de 10+ campos + confirmación sin agotar el presupuesto a mitad).
+    _max_cap = int(os.getenv("AGENT_MAX_STEPS", "120"))
+    max_steps = max(30, min(_max_cap, n_pasos * 5 + 15))
     estado = "error"
     resultado_texto = ""
     reporte_agente = {}          # JSON auto-reportado por el agente (done action)
