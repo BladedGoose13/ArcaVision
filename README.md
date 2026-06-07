@@ -37,7 +37,7 @@ El flujo completo ocurre dentro de una interfaz web — nada se configura en có
 
 **Confianza bayesiana:** Cada campo mapeado tiene un score de probabilidad. Si el score supera el umbral, el agente actúa solo. Si está cerca del límite, lo marca para revisión. Si es muy bajo, escala al operador. El umbral mejora con cada confirmación humana.
 
-**Auditoría:** Los registros financieros se cifran con Fernet (AES-128-CBC) en reposo y se anclan como hash SHA-256 en Solana Devnet — nadie puede alterar un pedido sin que se note.
+**Auditoría:** Los registros financieros se cifran con Fernet (AES-128-CBC) en reposo y se anclan como hash SHA-256 en Solana Devnet, nadie puede alterar un pedido sin que se note.
 
 &nbsp;
 
