@@ -47,7 +47,7 @@ El flujo completo ocurre dentro de una interfaz web — nada se configura en có
 git clone https://github.com/BladedGoose13/ArcaVision.git
 cd ArcaVision
 pip install -r requirements.txt
-cp .env.example .env
+cp .env
 ```
 
 Llena las variables en `.env`. El agente descarga su propio navegador la primera vez que corre.
