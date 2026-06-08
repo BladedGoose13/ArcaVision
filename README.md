@@ -50,8 +50,6 @@ pip install -r requirements.txt
 cp .env
 ```
 
-Llena las variables en `.env`. El agente descarga su propio navegador la primera vez que corre.
-
 **Levantar la interfaz:**
 
 ```bash
